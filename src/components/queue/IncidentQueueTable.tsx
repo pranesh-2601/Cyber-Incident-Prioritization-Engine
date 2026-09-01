@@ -1,14 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  ListOrdered, 
-  ArrowUpDown, 
-  Download, 
-  Flame, 
-  RefreshCw, 
-  ShieldCheck, 
-  SlidersHorizontal,
-  Info
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Info, ListOrdered } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
 import { Incident } from '../../types/incident';
 import { IncidentRow } from './IncidentRow';
@@ -19,13 +10,11 @@ export const IncidentQueueTable: React.FC<{
   onSelectIncident: (inc: Incident) => void;
   onCompareIncidents: (a: Incident, b: Incident) => void;
 }> = ({ onSelectIncident, onCompareIncidents }) => {
-  const { incidents, filters, updateIncidentStatus, simulateBatchAlerts } = useIncidents();
+  const { incidents, filters, updateIncidentStatus } = useIncidents();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Apply filters to incidents
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
-      // Search query
       if (filters.searchQuery.trim()) {
         const query = filters.searchQuery.toLowerCase();
         const matches =
@@ -38,35 +27,31 @@ export const IncidentQueueTable: React.FC<{
         if (!matches) return false;
       }
 
-      // Risk levels filter
-      if (filters.riskLevels.length > 0 && !filters.riskLevels.includes(inc.riskLevel)) {
-        return false;
-      }
-
-      // Status filter
-      if (filters.statuses.length > 0 && !filters.statuses.includes(inc.status)) {
-        return false;
-      }
-
-      // Attack Category filter
-      if (filters.types.length > 0 && !filters.types.includes(inc.type)) {
-        return false;
-      }
-
-      // Only Correlated filter
-      if (filters.onlyCorrelated && inc.correlatedIncidentIds.length === 0) {
-        return false;
-      }
+      if (filters.riskLevels.length > 0 && !filters.riskLevels.includes(inc.riskLevel)) return false;
+      if (filters.statuses.length > 0 && !filters.statuses.includes(inc.status)) return false;
+      if (filters.types.length > 0 && !filters.types.includes(inc.type)) return false;
+      if (filters.onlyCorrelated && inc.correlatedIncidentIds.length === 0) return false;
 
       return true;
     });
   }, [incidents, filters]);
 
+  useEffect(() => {
+    const validIds = new Set(incidents.map((incident) => incident.id));
+    setSelectedIds((prev) => prev.filter((id) => validIds.has(id)));
+  }, [incidents]);
+
+  const allVisibleSelected =
+    filteredIncidents.length > 0 && filteredIncidents.every((incident) => selectedIds.includes(incident.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.length === filteredIncidents.length) {
-      setSelectedIds([]);
+    const visibleIds = filteredIncidents.map((incident) => incident.id);
+    const visibleIdSet = new Set(visibleIds);
+
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIdSet.has(id)));
     } else {
-      setSelectedIds(filteredIncidents.map((i) => i.id));
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
     }
   };
 
@@ -78,12 +63,9 @@ export const IncidentQueueTable: React.FC<{
 
   return (
     <div className="space-y-4">
-      {/* Filters bar */}
       <QueueFilters />
 
-      {/* Table Container */}
       <div className="glass-panel rounded-xl border border-slate-800 overflow-hidden shadow-xl">
-        {/* Table Header Bar */}
         <div className="px-5 py-3.5 border-b border-slate-800/80 bg-slate-950/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ListOrdered className="w-4 h-4 text-cyan-400" />
@@ -101,7 +83,6 @@ export const IncidentQueueTable: React.FC<{
           </div>
         </div>
 
-        {/* Scrollable Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -109,7 +90,7 @@ export const IncidentQueueTable: React.FC<{
                 <th className="py-3 px-4 w-12">
                   <input
                     type="checkbox"
-                    checked={filteredIncidents.length > 0 && selectedIds.length === filteredIncidents.length}
+                    checked={allVisibleSelected}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-cyan-500 focus:ring-0 cursor-pointer"
                   />
@@ -156,7 +137,6 @@ export const IncidentQueueTable: React.FC<{
           </table>
         </div>
 
-        {/* Footer info */}
         <div className="px-5 py-3 border-t border-slate-800/80 bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-slate-500 gap-2">
           <div className="flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-cyan-400" />
@@ -166,7 +146,6 @@ export const IncidentQueueTable: React.FC<{
         </div>
       </div>
 
-      {/* Floating Batch Action Bar */}
       <BatchActionBar
         selectedIds={selectedIds}
         onClearSelection={() => setSelectedIds([])}
