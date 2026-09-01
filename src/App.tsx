@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { IncidentProvider, useIncidents } from './context/IncidentContext';
 import { LandingPage } from './components/landing/LandingPage';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
@@ -10,28 +10,36 @@ import { IncidentQueueTable } from './components/queue/IncidentQueueTable';
 import { AttackChainVisualizer } from './components/attackChain/AttackChainVisualizer';
 import { AddIncidentForm } from './components/ingestion/AddIncidentForm';
 import { IncidentDetailPage } from './components/incidentDetail/IncidentDetailPage';
-import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { SimulationController } from './components/simulation/SimulationController';
 import { WeightCustomizer } from './components/settings/WeightCustomizer';
 import { ExplainableRankingModal } from './components/explainability/ExplainableRankingModal';
 import { HeadToHeadComparison } from './components/explainability/HeadToHeadComparison';
 import { Incident } from './types/incident';
 
+const AnalyticsDashboard = lazy(() =>
+  import('./components/analytics/AnalyticsDashboard').then((module) => ({
+    default: module.AnalyticsDashboard,
+  }))
+);
+
+const SectionFallback = () => (
+  <div className="glass-panel rounded-xl border border-slate-800 p-8 text-center text-xs font-mono text-slate-400">
+    Loading SOC analytics…
+  </div>
+);
+
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [userPersona, setUserPersona] = useState<string>('Lead Incident Commander');
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  
-  // Full view states
   const [viewingDetailIncident, setViewingDetailIncident] = useState<Incident | null>(null);
-  
-  // Modals
-  const { 
-    selectedIncident, 
-    setSelectedIncident, 
-    comparingIncident, 
+
+  const {
+    selectedIncident,
+    setSelectedIncident,
+    comparingIncident,
     setComparingIncident,
-    incidents 
+    incidents,
   } = useIncidents();
   const [secondaryCompareIncident, setSecondaryCompareIncident] = useState<Incident | null>(null);
 
@@ -42,6 +50,10 @@ function AppContent() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setViewingDetailIncident(null);
+    setSelectedIncident(null);
+    setComparingIncident(null);
+    setSecondaryCompareIncident(null);
   };
 
   const handleOpenExplainModal = (incident: Incident) => {
@@ -67,7 +79,6 @@ function AppContent() {
 
   return (
     <div className="flex min-h-screen bg-[#030712] text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -78,15 +89,10 @@ function AppContent() {
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
         <Header activeTab={activeTab} setActiveTab={setActiveTab} />
-
-        {/* Real-time Threat Ticker Alert */}
         <ThreatTicker />
 
-        {/* Dynamic View Body */}
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
           {viewingDetailIncident ? (
             <IncidentDetailPage
@@ -98,21 +104,16 @@ function AppContent() {
             <>
               {activeTab === 'dashboard' && (
                 <div className="space-y-6">
-                  {/* Top KPI Cards */}
                   <SummaryCards
                     onNavigateToQueue={() => setActiveTab('queue')}
                     onNavigateToChains={() => setActiveTab('chains')}
                   />
-
-                  {/* Threat Focus Radar & Active Attack Chains */}
                   <ThreatRadar
                     onSelectIncident={handleOpenExplainModal}
                     onSelectChain={() => setActiveTab('chains')}
                     onNavigateToQueue={() => setActiveTab('queue')}
                     onNavigateToChains={() => setActiveTab('chains')}
                   />
-
-                  {/* Central Prioritized Incident Queue Preview */}
                   <IncidentQueueTable
                     onSelectIncident={handleOpenExplainModal}
                     onCompareIncidents={handleTriggerCompare}
@@ -128,43 +129,37 @@ function AppContent() {
               )}
 
               {activeTab === 'chains' && (
-                <AttackChainVisualizer
-                  onSelectIncident={handleOpenExplainModal}
-                />
+                <AttackChainVisualizer onSelectIncident={handleOpenExplainModal} />
               )}
 
-              {activeTab === 'analytics' && <AnalyticsDashboard />}
+              {activeTab === 'analytics' && (
+                <Suspense fallback={<SectionFallback />}>
+                  <AnalyticsDashboard />
+                </Suspense>
+              )}
 
               {activeTab === 'add' && (
-                <AddIncidentForm
-                  onSuccessNavigateToQueue={() => setActiveTab('queue')}
-                />
+                <AddIncidentForm onSuccessNavigateToQueue={() => setActiveTab('queue')} />
               )}
 
               {activeTab === 'simulation' && (
-                <SimulationController
-                  onNavigateToQueue={() => setActiveTab('queue')}
-                />
+                <SimulationController onNavigateToQueue={() => setActiveTab('queue')} />
               )}
 
               {activeTab === 'settings' && (
-                <WeightCustomizer
-                  onNavigateToQueue={() => setActiveTab('queue')}
-                />
+                <WeightCustomizer onNavigateToQueue={() => setActiveTab('queue')} />
               )}
             </>
           )}
         </main>
       </div>
 
-      {/* Explainable Ranking Modal ("Why this incident ranks here") */}
       <ExplainableRankingModal
         incident={selectedIncident}
         onClose={() => setSelectedIncident(null)}
         onCompareWithNext={handleCompareWithNextFromModal}
       />
 
-      {/* Head-to-Head Comparison Modal ("Why Incident #1 outranks Incident #2") */}
       <HeadToHeadComparison
         incidentA={comparingIncident}
         incidentB={secondaryCompareIncident}
