@@ -10,6 +10,14 @@ import {
 import { DEFAULT_WEIGHTS, rankIncidents } from '../utils/scoringEngine';
 import { correlateAllIncidents, buildAttackChains } from '../utils/correlationEngine';
 import { INITIAL_MOCK_INCIDENTS, generateBatchAlerts, generateLiveIncomingAlert } from '../utils/mockData';
+import {
+  deleteIncidentFromSupabase,
+  loadIncidentsFromSupabase,
+  updateIncidentStatusInSupabase,
+  upsertIncidentToSupabase,
+  upsertIncidentsToSupabase,
+} from '../services/supabaseIncidents';
+import { subscribeToSupabaseChanges } from '../services/supabaseRealtime';
 
 interface IncidentContextType {
   incidents: Incident[];
@@ -41,6 +49,7 @@ interface IncidentContextType {
 
 const STORAGE_KEY_INCIDENTS = 'cyber_soc_incidents_v2';
 const STORAGE_KEY_WEIGHTS = 'cyber_soc_weights_v2';
+const DATABASE_FALLBACK_REFRESH_MS = 30000;
 
 const DEFAULT_FILTERS: QueueFilters = {
   searchQuery: '',
@@ -62,6 +71,10 @@ const createUniqueIncidentId = (incidents: Incident[]) => {
     id = `INC-${Date.now().toString(36).toUpperCase()}-${randomPart}`;
   } while (existingIds.has(id));
   return id;
+};
+
+const logDatabaseError = (action: string, error: unknown) => {
+  console.warn(`${action}. Local UI state is still available.`, error);
 };
 
 export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -96,6 +109,66 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [criticalAlertBanner, setCriticalAlertBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateAndMigrateLocalOnly = async () => {
+      try {
+        const databaseIncidents = await loadIncidentsFromSupabase();
+        if (cancelled) return;
+
+        setRawIncidents((localIncidents) => {
+          const databaseIds = new Set(databaseIncidents.map((incident) => incident.id));
+          const localOnly = localIncidents.filter((incident) => !databaseIds.has(incident.id));
+
+          if (localOnly.length > 0) {
+            void upsertIncidentsToSupabase(localOnly).catch((error) =>
+              logDatabaseError('Could not migrate local-only incidents to Supabase', error)
+            );
+          }
+
+          if (databaseIncidents.length === 0) return localIncidents;
+          return [...databaseIncidents, ...localOnly];
+        });
+      } catch (error) {
+        logDatabaseError('Supabase startup sync failed', error);
+      }
+    };
+
+    const refreshSharedIncidents = async () => {
+      try {
+        const databaseIncidents = await loadIncidentsFromSupabase();
+        if (!cancelled) {
+          setRawIncidents(databaseIncidents);
+        }
+      } catch (error) {
+        logDatabaseError('Supabase refresh failed', error);
+      }
+    };
+
+    void hydrateAndMigrateLocalOnly();
+
+    const unsubscribeRealtime = subscribeToSupabaseChanges(
+      'incidents',
+      () => void refreshSharedIncidents()
+    );
+
+    const fallbackInterval = window.setInterval(
+      () => void refreshSharedIncidents(),
+      DATABASE_FALLBACK_REFRESH_MS
+    );
+
+    const refreshOnFocus = () => void refreshSharedIncidents();
+    window.addEventListener('focus', refreshOnFocus);
+
+    return () => {
+      cancelled = true;
+      unsubscribeRealtime();
+      window.clearInterval(fallbackInterval);
+      window.removeEventListener('focus', refreshOnFocus);
+    };
+  }, []);
 
   const { incidents, attackChains } = useMemo(() => {
     const { correlatedIncidents } = correlateAllIncidents(rawIncidents);
@@ -168,6 +241,9 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const interval = setInterval(() => {
       setRawIncidents((prev) => {
         const newAlert = generateLiveIncomingAlert(prev);
+        void upsertIncidentToSupabase(newAlert).catch((error) =>
+          logDatabaseError('Could not save live alert to Supabase', error)
+        );
         setCriticalAlertBanner(
           `CRITICAL ATTACK CHAIN DETECTED: ${newAlert.title} (Target: ${newAlert.asset} | IP: ${newAlert.sourceIp})`
         );
@@ -184,26 +260,31 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addIncident = useCallback(
     (newIncidentData: Omit<Incident, 'id' | 'weightedScore' | 'priorityScore' | 'riskLevel' | 'rank' | 'correlatedIncidentIds'>) => {
-      setRawIncidents((prev) => {
-        const newInc: Incident = {
-          ...newIncidentData,
-          id: createUniqueIncidentId(prev),
-          weightedScore: 0,
-          priorityScore: 0,
-          riskLevel: 'HIGH',
-          correlatedIncidentIds: [],
-          timestamp: newIncidentData.timestamp || new Date().toISOString(),
-          isNewAlert: true,
-        };
-        return [newInc, ...prev];
-      });
+      const newInc: Incident = {
+        ...newIncidentData,
+        id: createUniqueIncidentId(rawIncidents),
+        weightedScore: 0,
+        priorityScore: 0,
+        riskLevel: 'HIGH',
+        correlatedIncidentIds: [],
+        timestamp: newIncidentData.timestamp || new Date().toISOString(),
+        isNewAlert: true,
+      };
+
+      setRawIncidents((prev) => [newInc, ...prev]);
+      void upsertIncidentToSupabase(newInc).catch((error) =>
+        logDatabaseError('Could not save new incident to Supabase', error)
+      );
     },
-    []
+    [rawIncidents]
   );
 
   const simulateBatchAlerts = useCallback(() => {
     const generated = generateBatchAlerts();
-    setRawIncidents(generated);
+    setRawIncidents((prev) => [...generated, ...prev]);
+    void upsertIncidentsToSupabase(generated).catch((error) =>
+      logDatabaseError('Could not save simulated incidents to Supabase', error)
+    );
     setSelectedIncident(null);
     setComparingIncident(null);
     setActiveChainDetail(null);
@@ -211,36 +292,62 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const updateIncidentStatus = useCallback((id: string, status: IncidentStatus, notes?: string) => {
+    const current = rawIncidents.find((incident) => incident.id === id);
+    if (!current) return;
+
+    const currentNotes = current.notes || [];
+    const updatedNotes = notes ? [...currentNotes, notes] : currentNotes;
+    const mitigatedAt = status === 'MITIGATED' ? new Date().toISOString() : undefined;
+
     setRawIncidents((prev) =>
-      prev.map((inc) => {
-        if (inc.id !== id) return inc;
-        const currentNotes = inc.notes || [];
-        return {
-          ...inc,
-          status,
-          mitigatedAt: status === 'MITIGATED' ? new Date().toISOString() : undefined,
-          notes: notes ? [...currentNotes, notes] : currentNotes,
-        };
-      })
+      prev.map((inc) =>
+        inc.id === id
+          ? { ...inc, status, mitigatedAt, notes: updatedNotes }
+          : inc
+      )
     );
-  }, []);
+
+    void updateIncidentStatusInSupabase(id, status, updatedNotes, mitigatedAt).catch((error) =>
+      logDatabaseError('Could not update incident status in Supabase', error)
+    );
+  }, [rawIncidents]);
 
   const batchUpdateStatus = useCallback((ids: string[], status: IncidentStatus) => {
     const idSet = new Set(ids);
     const mitigatedAt = status === 'MITIGATED' ? new Date().toISOString() : undefined;
+
     setRawIncidents((prev) =>
       prev.map((inc) =>
         idSet.has(inc.id)
-          ? { ...inc, status, mitigatedAt: status === 'MITIGATED' ? mitigatedAt : undefined }
+          ? { ...inc, status, mitigatedAt }
           : inc
       )
     );
-  }, []);
+
+    const updates = rawIncidents
+      .filter((incident) => idSet.has(incident.id))
+      .map((incident) =>
+        updateIncidentStatusInSupabase(
+          incident.id,
+          status,
+          incident.notes || [],
+          mitigatedAt
+        )
+      );
+
+    void Promise.all(updates).catch((error) =>
+      logDatabaseError('Could not batch-update incident statuses in Supabase', error)
+    );
+  }, [rawIncidents]);
 
   const deleteIncident = useCallback((id: string) => {
     setRawIncidents((prev) => prev.filter((i) => i.id !== id));
     if (selectedIncident?.id === id) setSelectedIncident(null);
     if (comparingIncident?.id === id) setComparingIncident(null);
+
+    void deleteIncidentFromSupabase(id).catch((error) =>
+      logDatabaseError('Could not delete incident from Supabase', error)
+    );
   }, [selectedIncident, comparingIncident]);
 
   const updateWeights = useCallback((newWeights: Partial<FactorWeights>) => {

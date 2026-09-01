@@ -1,15 +1,14 @@
-import React from 'react';
-import { 
-  Play, 
-  Pause, 
-  RefreshCw, 
-  Download, 
-  Bell, 
-  SlidersHorizontal,
+import React, { useEffect, useState } from 'react';
+import {
+  Play,
+  Pause,
+  Download,
   Flame,
-  Search
+  Search,
+  Database,
 } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
+import { loadIncidentsFromSupabase } from '../../services/supabaseIncidents';
 import { ActiveTab } from './Sidebar';
 
 interface HeaderProps {
@@ -17,16 +16,136 @@ interface HeaderProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
 
+type DatabaseStatus = 'syncing' | 'connected' | 'offline';
+
+const escapeHtml = (value: unknown) => {
+  const text = value == null ? '' : String(value);
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
-  const { 
-    isLiveMode, 
-    setIsLiveMode, 
-    simulateBatchAlerts, 
-    exportDataJSON, 
-    filters, 
+  const {
+    incidents,
+    isLiveMode,
+    setIsLiveMode,
+    simulateBatchAlerts,
+    filters,
     setFilters,
-    metrics 
   } = useIncidents();
+  const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>('syncing');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkDatabase = async () => {
+      if (!cancelled) setDatabaseStatus('syncing');
+      try {
+        await loadIncidentsFromSupabase();
+        if (!cancelled) setDatabaseStatus('connected');
+      } catch {
+        if (!cancelled) setDatabaseStatus('offline');
+      }
+    };
+
+    void checkDatabase();
+    const interval = window.setInterval(() => void checkDatabase(), 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const exportQueueExcel = () => {
+    const headers = [
+      'Rank',
+      'Incident ID',
+      'Title',
+      'Type',
+      'Priority Score',
+      'Risk Level',
+      'Status',
+      'Asset',
+      'Source IP',
+      'Destination IP',
+      'User',
+      'Severity',
+      'Business Impact',
+      'Asset Importance',
+      'Data Sensitivity',
+      'Attack Confidence',
+      'Affected Users',
+      'Correlation Score',
+      'Connected Alerts',
+      'Attack Chain',
+      'Timestamp',
+    ];
+
+    const rows = incidents.map((incident) => [
+      incident.rank ?? '',
+      incident.id,
+      incident.title,
+      incident.type,
+      incident.priorityScore,
+      incident.riskLevel,
+      incident.status,
+      incident.asset,
+      incident.sourceIp,
+      incident.destinationIp || '',
+      incident.user,
+      incident.factors.severity,
+      incident.factors.businessImpact,
+      incident.factors.assetImportance,
+      incident.factors.dataSensitivity,
+      incident.factors.attackConfidence,
+      incident.factors.affectedUsers,
+      incident.factors.correlationScore,
+      incident.correlatedIncidentIds.length,
+      incident.attackChainId || '',
+      new Date(incident.timestamp).toLocaleString(),
+    ]);
+
+    const headerHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+    const bodyHtml = rows
+      .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+      .join('');
+
+    const workbookHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  table { border-collapse: collapse; table-layout: fixed; width: ${headers.length * 150}px; font-family: Arial, sans-serif; font-size: 11pt; }
+  th, td { border: 1px solid #9ca3af; width: 150px; min-width: 150px; max-width: 150px; padding: 8px; vertical-align: middle; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+  th { font-weight: 700; text-align: center; background: #e5e7eb; }
+  td { text-align: left; }
+</style>
+</head>
+<body>
+<table>
+  <thead><tr>${headerHtml}</tr></thead>
+  <tbody>${bodyHtml}</tbody>
+</table>
+</body>
+</html>`;
+
+    const blob = new Blob(['\uFEFF', workbookHtml], {
+      type: 'application/vnd.ms-excel;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = `cyber-soc-prioritized-queue-${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const titles: Record<ActiveTab, { title: string; subtitle: string }> = {
     dashboard: { title: 'SOC Overview & Command Radar', subtitle: 'Live telemetry, attack chain health, and prioritized alert statistics' },
@@ -39,10 +158,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   };
 
   const current = titles[activeTab];
+  const databaseLabel = databaseStatus === 'connected'
+    ? 'Database Connected'
+    : databaseStatus === 'syncing'
+      ? 'Syncing Database'
+      : 'Database Offline';
 
   return (
     <header className="sticky top-0 z-10 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-6 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      {/* Title */}
       <div>
         <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
           {current.title}
@@ -50,9 +173,32 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         <p className="text-xs text-slate-400 font-mono">{current.subtitle}</p>
       </div>
 
-      {/* Global Controls & Actions */}
       <div className="flex items-center flex-wrap gap-2.5">
-        {/* Quick Search */}
+        <div
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-mono font-semibold ${
+            databaseStatus === 'connected'
+              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
+              : databaseStatus === 'syncing'
+                ? 'bg-amber-950/70 text-amber-300 border-amber-500/40'
+                : 'bg-red-950/70 text-red-300 border-red-500/40'
+          }`}
+          title={databaseStatus === 'connected'
+            ? 'Supabase is online. Incident changes are shared across browsers.'
+            : databaseStatus === 'syncing'
+              ? 'Checking the shared Supabase incident database.'
+              : 'Supabase is temporarily unreachable. Local browser data remains available.'}
+        >
+          <span className={`w-2 h-2 rounded-full ${
+            databaseStatus === 'connected'
+              ? 'bg-emerald-400'
+              : databaseStatus === 'syncing'
+                ? 'bg-amber-400 animate-pulse'
+                : 'bg-red-400'
+          }`} />
+          <Database className="w-3.5 h-3.5" />
+          <span>{databaseLabel}</span>
+        </div>
+
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -67,7 +213,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           />
         </div>
 
-        {/* Batch Alert Simulation Button */}
         <button
           onClick={simulateBatchAlerts}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 text-xs font-mono font-medium border border-indigo-500/40 transition-all shadow-sm"
@@ -77,7 +222,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           <span>Simulate Alerts</span>
         </button>
 
-        {/* Live Mode Toggle */}
         <button
           onClick={() => setIsLiveMode(!isLiveMode)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
@@ -99,13 +243,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           )}
         </button>
 
-        {/* Export JSON */}
         <button
-          onClick={exportDataJSON}
-          className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors"
-          title="Export Prioritized Queue as JSON"
+          onClick={exportQueueExcel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition-colors text-xs font-mono font-semibold"
+          title="Export the prioritized queue as an Excel spreadsheet with uniform column widths"
         >
           <Download className="w-4 h-4" />
+          <span className="hidden xl:inline">Export Queue Excel</span>
+          <span className="xl:hidden">Excel</span>
         </button>
       </div>
     </header>

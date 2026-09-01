@@ -128,8 +128,14 @@ export function calculateFactorContributions(
   });
 }
 
+const getQueueStatusBucket = (incident: Incident): number => {
+  if (incident.status === 'MITIGATED' || incident.status === 'SUPPRESSED') return 1;
+  return 0;
+};
+
 /**
  * Deterministic Hackathon Tie-Breaking Comparator:
+ * 0. Active investigation items before resolved/suppressed items
  * 1. Final Priority Score (Higher wins)
  * 2. Correlation Score (Higher wins)
  * 3. Severity (Higher wins)
@@ -137,6 +143,11 @@ export function calculateFactorContributions(
  * 5. Timestamp (More recent wins)
  */
 export function compareIncidents(a: Incident, b: Incident): number {
+  const statusBucketA = getQueueStatusBucket(a);
+  const statusBucketB = getQueueStatusBucket(b);
+  if (statusBucketA !== statusBucketB) {
+    return statusBucketA - statusBucketB;
+  }
   if (b.priorityScore !== a.priorityScore) {
     return b.priorityScore - a.priorityScore;
   }

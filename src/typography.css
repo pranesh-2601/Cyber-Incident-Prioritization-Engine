@@ -1,0 +1,258 @@
+/* Typography system: modern SOC dashboard with readable body text and technical data accents. */
+
+html {
+  font-size: 16px;
+  text-rendering: optimizeLegibility;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  line-height: 1.52;
+  font-weight: 400;
+  letter-spacing: -0.004em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.mission-title {
+  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.028em;
+}
+
+h1,
+h2,
+.mission-title {
+  font-weight: 700;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+/* Keep monospace only for genuinely technical values, not ordinary UI copy. */
+.font-mono,
+.mission-rank,
+.mission-radar-meta strong,
+.mission-primary-grid strong,
+.mission-mini-rank {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: 0;
+}
+
+/* Convert command-center labels back to a cleaner UI face. */
+.mission-eyebrow,
+.mission-status-cluster span,
+.mission-panel-heading,
+.mission-priority-chip,
+.mission-chain-chip,
+.mission-primary-grid span,
+.mission-investigate-btn,
+.mission-ai-action,
+.mission-stage-chip,
+.mission-section-kicker {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.mission-eyebrow {
+  font-size: 10px;
+  line-height: 1.45;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+
+.mission-title {
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.mission-status-cluster span {
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: .015em;
+}
+
+.mission-panel-heading {
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: .045em;
+  min-height: 34px;
+}
+
+.mission-link,
+.mission-live-pill {
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.mission-radar-meta span {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.mission-radar-meta strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mission-rank {
+  font-size: 11px;
+}
+
+.mission-priority-chip,
+.mission-chain-chip {
+  font-size: 9px;
+  line-height: 1.4;
+  padding: 4px 7px;
+  font-weight: 700;
+}
+
+.mission-primary-grid span {
+  font-size: 9px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.mission-primary-grid strong {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.mission-investigate-btn,
+.mission-ai-action {
+  font-size: 10px;
+  line-height: 1.35;
+  min-height: 38px;
+  font-weight: 700;
+}
+
+.mission-mini-rank {
+  font-size: 10px;
+}
+
+.mission-stage-chip {
+  font-size: 8px;
+  line-height: 1.35;
+  padding: 3px 5px;
+  font-weight: 700;
+}
+
+.mission-section-kicker {
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: .09em;
+  margin-bottom: 9px;
+}
+
+/* Improve the smallest text sizes without making the interface look cramped. */
+.mission-shell .text-\[9px\] {
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+
+.mission-shell .text-\[10px\] {
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.mission-shell .text-\[11px\] {
+  font-size: 12px !important;
+  line-height: 1.48 !important;
+}
+
+.mission-shell .text-xs {
+  line-height: 1.5;
+}
+
+/* Queue stays compact, but labels use Inter while IDs and values remain technical. */
+.mission-shell table th {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: .035em;
+  white-space: nowrap;
+}
+
+.mission-shell table td {
+  line-height: 1.48;
+  vertical-align: middle;
+}
+
+.mission-shell button,
+.mission-shell a {
+  line-height: 1.4;
+}
+
+.mission-shell p {
+  line-height: 1.58;
+}
+
+/* Sidebar and navigation should feel like an app, not terminal output. */
+.mission-shell nav,
+.mission-shell aside,
+.mission-shell header {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Preserve monospace for incident IDs, IPs, ranks, timestamps and numeric score values. */
+.mission-shell td .font-mono,
+.mission-shell .font-mono {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+.mission-threat-row,
+.mission-chain-row,
+.mission-mini-card {
+  min-height: 46px;
+}
+
+.mission-primary-grid div {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+@media (max-width: 1280px) {
+  .mission-title {
+    font-size: 24px;
+  }
+
+  .mission-panel-heading {
+    letter-spacing: .035em;
+  }
+}
+
+@media (max-width: 900px) {
+  .mission-shell .text-\[11px\] {
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .mission-title {
+    font-size: 22px;
+  }
+
+  .mission-eyebrow {
+    letter-spacing: .08em;
+  }
+}
