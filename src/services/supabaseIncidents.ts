@@ -1,4 +1,4 @@
-import { Incident, IncidentStatus } from '../types/incident';
+import { FactorWeights, Incident, IncidentStatus } from '../types/incident';
 
 const SUPABASE_URL = 'https://lenivohgxznlrsqghxrg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dalRTRYrY1c2QE6pUBkvcg_d5613SEU';
@@ -197,4 +197,30 @@ export const deleteIncidentFromSupabase = async (id: string): Promise<void> => {
     }
   );
   await ensureOk(response, 'Supabase incident delete');
+};
+
+export const loadWeightsFromSupabase = async (): Promise<FactorWeights | null> => {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/soc_settings?select=weights&id=eq.default&limit=1`,
+    { headers: baseHeaders }
+  );
+  await ensureOk(response, 'Supabase scoring settings load');
+  const rows = (await response.json()) as Array<{ weights: FactorWeights }>;
+  return rows[0]?.weights ?? null;
+};
+
+export const saveWeightsToSupabase = async (weights: FactorWeights): Promise<void> => {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/soc_settings?on_conflict=id`, {
+    method: 'POST',
+    headers: {
+      ...baseHeaders,
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify({
+      id: 'default',
+      weights,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  await ensureOk(response, 'Supabase scoring settings save');
 };
