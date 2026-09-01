@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useIncidents } from '../../context/IncidentContext';
 import { loadWeightsFromSupabase, saveWeightsToSupabase } from '../../services/supabaseIncidents';
+import { subscribeToSupabaseChanges } from '../../services/supabaseRealtime';
 
-const WEIGHT_REFRESH_MS = 2000;
+const WEIGHT_FALLBACK_REFRESH_MS = 30000;
 
 export const SharedWeightsSync = () => {
   const { weights, updateWeights } = useIncidents();
@@ -35,13 +36,24 @@ export const SharedWeightsSync = () => {
     };
 
     void pullWeights();
-    const interval = window.setInterval(() => void pullWeights(), WEIGHT_REFRESH_MS);
+
+    const unsubscribeRealtime = subscribeToSupabaseChanges(
+      'soc_settings',
+      () => void pullWeights()
+    );
+
+    const fallbackInterval = window.setInterval(
+      () => void pullWeights(),
+      WEIGHT_FALLBACK_REFRESH_MS
+    );
+
     const onFocus = () => void pullWeights();
     window.addEventListener('focus', onFocus);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      unsubscribeRealtime();
+      window.clearInterval(fallbackInterval);
       window.removeEventListener('focus', onFocus);
     };
   }, [updateWeights]);
