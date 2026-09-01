@@ -41,22 +41,34 @@ export const MITRE_TECHNIQUES: Record<AttackCategory, { id: string; name: string
   'Ransomware Activity': { id: 'T1486', name: 'Data Encrypted for Impact', tactic: 'Impact' },
 };
 
+const isKnownValue = (value?: string): value is string => {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized !== 'unknown' && normalized !== 'n/a' && normalized !== 'none';
+};
+
 /**
  * Checks if two incidents share one or more entity attributes
  */
 export function areIncidentsCorrelated(a: Incident, b: Incident): boolean {
   if (a.id === b.id) return false;
 
-  const sameSrcIp = Boolean(a.sourceIp && b.sourceIp && a.sourceIp === b.sourceIp && a.sourceIp !== 'Unknown');
-  const sameDestIp = Boolean(a.destinationIp && b.destinationIp && a.destinationIp === b.destinationIp && a.destinationIp !== 'Unknown');
-  const sameUser = Boolean(a.user && b.user && a.user.toLowerCase() === b.user.toLowerCase() && a.user !== 'Unknown' && a.user !== 'System');
-  const sameAsset = Boolean(a.asset && b.asset && a.asset.toLowerCase() === b.asset.toLowerCase());
-  const sameDevice = Boolean(a.device && b.device && a.device.toLowerCase() === b.device.toLowerCase());
+  const sameSrcIp = Boolean(isKnownValue(a.sourceIp) && isKnownValue(b.sourceIp) && a.sourceIp === b.sourceIp);
+  const sameDestIp = Boolean(isKnownValue(a.destinationIp) && isKnownValue(b.destinationIp) && a.destinationIp === b.destinationIp);
+  const sameUser = Boolean(
+    isKnownValue(a.user) &&
+    isKnownValue(b.user) &&
+    a.user.toLowerCase() === b.user.toLowerCase() &&
+    a.user.toLowerCase() !== 'system'
+  );
+  const sameAsset = Boolean(isKnownValue(a.asset) && isKnownValue(b.asset) && a.asset.toLowerCase() === b.asset.toLowerCase());
+  const sameDevice = Boolean(isKnownValue(a.device) && isKnownValue(b.device) && a.device.toLowerCase() === b.device.toLowerCase());
 
-  // Cross-entity matching: e.g. A's dest IP is B's source IP (lateral movement)
+  // Cross-entity matching: e.g. A's dest IP is B's source IP (lateral movement).
+  // Unknown/placeholder values must never create a correlation edge.
   const lateralLink = Boolean(
-    (a.destinationIp && b.sourceIp && a.destinationIp === b.sourceIp) ||
-    (b.destinationIp && a.sourceIp && b.destinationIp === a.sourceIp)
+    (isKnownValue(a.destinationIp) && isKnownValue(b.sourceIp) && a.destinationIp === b.sourceIp) ||
+    (isKnownValue(b.destinationIp) && isKnownValue(a.sourceIp) && b.destinationIp === a.sourceIp)
   );
 
   return sameSrcIp || sameDestIp || sameUser || sameAsset || sameDevice || lateralLink;
@@ -71,20 +83,18 @@ export function computeCorrelationScore(
 ): { score: number; correlatedIds: string[] } {
   const correlated = allIncidents.filter((other) => areIncidentsCorrelated(incident, other));
   const count = correlated.length;
-  
+
   if (count === 0) {
     return { score: 1.0, correlatedIds: [] };
   }
 
-  // Base score scaled by linked count
   let score = 2.0 + Math.min(count * 1.5, 5.0);
 
-  // Bonus for stage progression (e.g. credential access -> privilege escalation -> exfiltration)
   const currentStageNum = STAGE_ORDER[ATTACK_STAGE_MAP[incident.type] || 'Execution'];
   const stages = new Set(correlated.map((c) => ATTACK_STAGE_MAP[c.type]));
   if (stages.size >= 2) score += 1.5;
   if (stages.size >= 3) score += 1.5;
-  if (currentStageNum >= 5) score += 1.0; // Exfil or Impact phase
+  if (currentStageNum >= 5) score += 1.0;
 
   const finalScore = Math.min(10.0, Math.round(score * 10) / 10);
   return {
@@ -100,11 +110,9 @@ export function buildAttackChains(incidents: Incident[]): AttackChain[] {
   const chains: AttackChain[] = [];
   const visited = new Set<string>();
 
-  // Group connected components
   for (const incident of incidents) {
     if (visited.has(incident.id)) continue;
 
-    // Find all reachable correlated incidents (BFS)
     const cluster: Incident[] = [];
     const queue = [incident];
     visited.add(incident.id);
@@ -121,16 +129,14 @@ export function buildAttackChains(incidents: Incident[]): AttackChain[] {
       }
     }
 
-    // Only create an attack chain if 2 or more alerts are interconnected
     if (cluster.length >= 2) {
-      // Sort cluster chronologically
       cluster.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
       const chainId = `CHAIN-${cluster[0].id.replace('INC-', '')}-${cluster.length}`;
-      const srcIps = Array.from(new Set(cluster.map((c) => c.sourceIp).filter(Boolean)));
-      const destIps = Array.from(new Set(cluster.map((c) => c.destinationIp).filter(Boolean)));
-      const users = Array.from(new Set(cluster.map((c) => c.user).filter(Boolean)));
-      const assets = Array.from(new Set(cluster.map((c) => c.asset).filter(Boolean)));
+      const srcIps = Array.from(new Set(cluster.map((c) => c.sourceIp).filter(isKnownValue)));
+      const destIps = Array.from(new Set(cluster.map((c) => c.destinationIp).filter(isKnownValue)));
+      const users = Array.from(new Set(cluster.map((c) => c.user).filter(isKnownValue)));
+      const assets = Array.from(new Set(cluster.map((c) => c.asset).filter(isKnownValue)));
 
       const nodes: AttackChainNode[] = cluster.map((inc) => {
         const stage = ATTACK_STAGE_MAP[inc.type] || 'Execution';
@@ -151,7 +157,6 @@ export function buildAttackChains(incidents: Incident[]): AttackChain[] {
         };
       });
 
-      // Name based on key attacker / threat profile
       const primaryTarget = assets[0] || 'Infrastructure';
       const attackName = cluster.some((c) => c.type === 'Ransomware Activity')
         ? `Multi-Stage Ransomware Campaign on ${primaryTarget}`
@@ -204,7 +209,6 @@ export function correlateAllIncidents(incidents: Incident[]): {
 
   const attackChains = buildAttackChains(withCorrelation);
 
-  // Link attack chain metadata back to each incident
   const finalIncidents = withCorrelation.map((inc) => {
     const matchedChain = attackChains.find((chain) =>
       chain.nodes.some((n) => n.incidentId === inc.id)
