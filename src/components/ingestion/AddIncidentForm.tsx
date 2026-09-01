@@ -1,19 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  PlusCircle, 
-  Sparkles, 
-  ShieldAlert, 
-  Server, 
-  User, 
-  Layers, 
-  Network, 
-  Sliders, 
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Network, PlusCircle, Sparkles } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
-import { AttackCategory, ScoringFactors, Incident } from '../../types/incident';
-import { calculatePriorityScore, getRiskLevel, calculateFactorContributions } from '../../utils/scoringEngine';
+import { AttackCategory, Incident, ScoringFactors } from '../../types/incident';
+import { FACTOR_LABELS, getRiskLevel, rankIncidents } from '../../utils/scoringEngine';
+import { areIncidentsCorrelated, correlateAllIncidents } from '../../utils/correlationEngine';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { RiskBadge } from '../common/Badge';
 
@@ -33,7 +23,6 @@ export const AddIncidentForm: React.FC<{
     'Unauthorized outbound data burst detected across encrypted C2 channel to unapproved external IP.'
   );
 
-  // 7 Scoring Factors
   const [factors, setFactors] = useState<ScoringFactors>({
     severity: 8.8,
     businessImpact: 8.5,
@@ -48,28 +37,55 @@ export const AddIncidentForm: React.FC<{
     setFactors((prev) => ({ ...prev, [key]: val }));
   };
 
-  // Real-time calculated score
-  const liveScore = useMemo(() => {
-    return calculatePriorityScore(factors, weights);
-  }, [factors, weights]);
+  const previewIncident = useMemo<Incident>(() => ({
+    id: '__PREVIEW_INCIDENT__',
+    title: `${type} Alert on ${asset}`,
+    type,
+    description,
+    factors,
+    weightedScore: 0,
+    priorityScore: 0,
+    riskLevel: 'LOW',
+    sourceIp,
+    destinationIp,
+    asset,
+    assetTier,
+    user,
+    userRole,
+    device: `srv-${asset.toLowerCase()}`,
+    timestamp: new Date().toISOString(),
+    correlatedIncidentIds: [],
+    status: 'NEW',
+    recommendedActions: [],
+  }), [type, asset, description, factors, sourceIp, destinationIp, assetTier, user, userRole]);
 
-  const liveRisk = getRiskLevel(liveScore);
+  const potentialCorrelations = useMemo(
+    () => incidents.filter((incident) => areIncidentsCorrelated(previewIncident, incident)),
+    [incidents, previewIncident]
+  );
 
-  // Check if this incident would correlate with existing items
-  const potentialCorrelations = useMemo(() => {
-    return incidents.filter(
-      (i) =>
-        i.sourceIp === sourceIp ||
-        i.user.toLowerCase() === user.toLowerCase() ||
-        i.asset.toLowerCase() === asset.toLowerCase()
-    );
-  }, [incidents, sourceIp, user, asset]);
+  const previewResult = useMemo(() => {
+    const pool = [...incidents, previewIncident];
+    const { correlatedIncidents } = correlateAllIncidents(pool);
+    const ranked = rankIncidents(correlatedIncidents, weights);
+    return ranked.find((incident) => incident.id === previewIncident.id);
+  }, [incidents, previewIncident, weights]);
 
-  // Projected rank in current queue
-  const projectedRank = useMemo(() => {
-    const higherCount = incidents.filter((i) => i.priorityScore > liveScore).length;
-    return higherCount + 1;
-  }, [incidents, liveScore]);
+  const liveScore = previewResult?.priorityScore ?? 0;
+  const liveRisk = previewResult?.riskLevel ?? getRiskLevel(liveScore);
+  const projectedRank = previewResult?.rank ?? incidents.length + 1;
+  const dynamicCorrelationScore = previewResult?.factors.correlationScore ?? factors.correlationScore;
+
+  const weightSum = Object.values(weights).reduce((sum, value) => sum + value, 0) || 1;
+  const factorKeys: (keyof ScoringFactors)[] = [
+    'severity',
+    'businessImpact',
+    'assetImportance',
+    'dataSensitivity',
+    'attackConfidence',
+    'affectedUsers',
+    'correlationScore',
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +132,6 @@ export const AddIncidentForm: React.FC<{
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Form Inputs */}
         <div className="lg:col-span-2 glass-panel p-6 rounded-xl border border-slate-800 space-y-6">
           <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
             <div>
@@ -124,15 +139,13 @@ export const AddIncidentForm: React.FC<{
                 Manual Incident Ingestion Studio
               </h2>
               <p className="text-xs text-slate-400 font-mono">
-                Input entity telemetry and tune 7-factor weights for immediate ranking
+                Input entity telemetry and preview the exact post-correlation queue rank
               </p>
             </div>
             <PlusCircle className="w-5 h-5 text-cyan-400" />
           </div>
 
-          {/* Core Entity Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-            {/* Attack Category */}
             <div>
               <label className="text-slate-400 block mb-1">Incident Type</label>
               <select
@@ -140,15 +153,12 @@ export const AddIncidentForm: React.FC<{
                 onChange={(e) => setType(e.target.value as AttackCategory)}
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
               >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
                 ))}
               </select>
             </div>
 
-            {/* Asset Name */}
             <div>
               <label className="text-slate-400 block mb-1">Target Asset Hostname</label>
               <input
@@ -160,12 +170,11 @@ export const AddIncidentForm: React.FC<{
               />
             </div>
 
-            {/* Asset Tier */}
             <div>
               <label className="text-slate-400 block mb-1">Asset Criticality Tier</label>
               <select
                 value={assetTier}
-                onChange={(e) => setAssetTier(e.target.value as any)}
+                onChange={(e) => setAssetTier(e.target.value as Incident['assetTier'])}
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
               >
                 <option value="Tier 0 - Crown Jewels">Tier 0 - Crown Jewels (Domain / DB)</option>
@@ -175,7 +184,6 @@ export const AddIncidentForm: React.FC<{
               </select>
             </div>
 
-            {/* User Identity */}
             <div>
               <label className="text-slate-400 block mb-1">Impacted Account / Username</label>
               <input
@@ -187,7 +195,6 @@ export const AddIncidentForm: React.FC<{
               />
             </div>
 
-            {/* Source IP */}
             <div>
               <label className="text-slate-400 block mb-1">Source / Attacker IP</label>
               <input
@@ -199,7 +206,6 @@ export const AddIncidentForm: React.FC<{
               />
             </div>
 
-            {/* Destination IP */}
             <div>
               <label className="text-slate-400 block mb-1">Destination IP</label>
               <input
@@ -211,7 +217,6 @@ export const AddIncidentForm: React.FC<{
             </div>
           </div>
 
-          {/* Description */}
           <div className="text-xs font-mono">
             <label className="text-slate-400 block mb-1">Telemetry Narrative Description</label>
             <textarea
@@ -222,7 +227,6 @@ export const AddIncidentForm: React.FC<{
             />
           </div>
 
-          {/* 7 Scoring Factor Sliders */}
           <div className="space-y-4 pt-4 border-t border-slate-800">
             <div className="flex items-center justify-between text-xs font-mono text-cyan-400 font-bold">
               <span>7 Mathematical Scoring Dimensions (1.0 - 10.0)</span>
@@ -230,129 +234,39 @@ export const AddIncidentForm: React.FC<{
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Severity */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Severity (22%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.severity}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.severity}
-                  onChange={(e) => updateFactor('severity', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Business Impact */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Business Impact (18%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.businessImpact}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.businessImpact}
-                  onChange={(e) => updateFactor('businessImpact', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Asset Importance */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Asset Importance (15%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.assetImportance}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.assetImportance}
-                  onChange={(e) => updateFactor('assetImportance', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Data Sensitivity */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Data Sensitivity (15%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.dataSensitivity}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.dataSensitivity}
-                  onChange={(e) => updateFactor('dataSensitivity', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Attack Confidence */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Attack Confidence (12%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.attackConfidence}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.attackConfidence}
-                  onChange={(e) => updateFactor('attackConfidence', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Affected Users */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Affected Users (8%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.affectedUsers}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.affectedUsers}
-                  onChange={(e) => updateFactor('affectedUsers', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
-
-              {/* Correlation Score */}
-              <div className="space-y-1 md:col-span-2">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300">Initial Correlation Factor (10%)</span>
-                  <span className="text-cyan-400 font-bold">{factors.correlationScore}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={factors.correlationScore}
-                  onChange={(e) => updateFactor('correlationScore', parseFloat(e.target.value))}
-                  className="w-full accent-cyan-500"
-                />
-              </div>
+              {factorKeys.map((key) => {
+                const normalizedWeight = Math.round((weights[key] / weightSum) * 100);
+                const shownValue = key === 'correlationScore' ? dynamicCorrelationScore : factors[key];
+                return (
+                  <div key={key} className={key === 'correlationScore' ? 'space-y-1 md:col-span-2' : 'space-y-1'}>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-slate-300">
+                        {FACTOR_LABELS[key].name} ({normalizedWeight}% effective)
+                      </span>
+                      <span className="text-cyan-400 font-bold">{shownValue}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="0.1"
+                      value={factors[key]}
+                      onChange={(e) => updateFactor(key, parseFloat(e.target.value))}
+                      disabled={key === 'correlationScore'}
+                      className={`w-full accent-cyan-500 ${key === 'correlationScore' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    />
+                    {key === 'correlationScore' && (
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        Correlation is computed automatically from shared IPs, users, assets, devices and lateral links.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Right Col: Live Priority Score Preview & Analyze Button */}
         <div className="space-y-4">
           <div className="glass-panel p-5 rounded-xl border border-cyan-500/40 bg-gradient-to-b from-cyan-950/20 to-slate-900 shadow-xl space-y-4">
             <div className="text-xs font-mono text-cyan-400 uppercase tracking-wider font-bold">
@@ -369,24 +283,22 @@ export const AddIncidentForm: React.FC<{
               </div>
             </div>
 
-            {/* Potential Correlation Warning */}
             {potentialCorrelations.length > 0 ? (
               <div className="p-3 rounded-lg bg-purple-950/60 border border-purple-500/40 text-xs font-mono text-purple-200 flex items-start gap-2">
                 <Network className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-bold">Autonomous Link Found!</div>
                   <div className="text-[11px] text-purple-300">
-                    Matches {potentialCorrelations.length} existing alerts (IP: {sourceIp}). Will attach to active attack chain upon ingestion.
+                    Matches {potentialCorrelations.length} existing alert(s). Dynamic correlation score: {dynamicCorrelationScore}/10.
                   </div>
                 </div>
               </div>
             ) : (
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] font-mono text-slate-400">
-                Operating as standalone alert.
+                Operating as standalone alert. Dynamic correlation score: {dynamicCorrelationScore}/10.
               </div>
             )}
 
-            {/* Analyze Incident Submit Button */}
             <button
               type="submit"
               className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs tracking-wider uppercase transition-all shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2"
