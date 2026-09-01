@@ -7,6 +7,26 @@ const actionLabel: Record<IncidentAuditEntry['action'], string> = {
   UPDATED: 'Incident updated',
   STATUS_CHANGED: 'Status changed',
   DELETED: 'Incident deleted',
+  PLAYBOOK_EXECUTED: 'SOC playbook executed',
+};
+
+const describeEntry = (entry: IncidentAuditEntry) => {
+  if (entry.action === 'STATUS_CHANGED' && entry.previous_status && entry.new_status) {
+    return `${entry.previous_status} → ${entry.new_status}`;
+  }
+
+  if (entry.action === 'PLAYBOOK_EXECUTED') {
+    const playbookName = typeof entry.changed_fields?.playbook_name === 'string'
+      ? entry.changed_fields.playbook_name
+      : 'Automated mitigation action';
+    const result = typeof entry.changed_fields?.result === 'string'
+      ? entry.changed_fields.result
+      : null;
+    return result ? `${playbookName} — ${result}` : playbookName;
+  }
+
+  if (entry.new_status) return `Status: ${entry.new_status}`;
+  return 'Database activity recorded';
 };
 
 export const IncidentActivityHistory = ({ incidentId }: { incidentId: string }) => {
@@ -29,7 +49,7 @@ export const IncidentActivityHistory = ({ incidentId }: { incidentId: string }) 
 
     setLoading(true);
     void load();
-    const interval = window.setInterval(() => void load(), 5000);
+    const interval = window.setInterval(() => void load(), 2000);
 
     return () => {
       cancelled = true;
@@ -49,7 +69,7 @@ export const IncidentActivityHistory = ({ incidentId }: { incidentId: string }) 
 
       {entries.length === 0 ? (
         <div className="text-xs text-slate-500 font-mono rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-          No recorded activity yet. New database changes will appear here automatically.
+          No recorded activity yet. New database changes and SOC playbook actions will appear here automatically.
         </div>
       ) : (
         <div className="space-y-2">
@@ -57,13 +77,7 @@ export const IncidentActivityHistory = ({ incidentId }: { incidentId: string }) 
             <div key={entry.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs font-semibold text-slate-100">{actionLabel[entry.action]}</div>
-                <div className="text-[11px] font-mono text-slate-500 mt-1">
-                  {entry.action === 'STATUS_CHANGED' && entry.previous_status && entry.new_status
-                    ? `${entry.previous_status} → ${entry.new_status}`
-                    : entry.new_status
-                      ? `Status: ${entry.new_status}`
-                      : 'Database activity recorded'}
-                </div>
+                <div className="text-[11px] font-mono text-slate-500 mt-1">{describeEntry(entry)}</div>
               </div>
               <div className="text-[10px] font-mono text-slate-500 whitespace-nowrap">
                 {new Date(entry.created_at).toLocaleString()}
