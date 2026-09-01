@@ -17,6 +17,7 @@ import {
   upsertIncidentToSupabase,
   upsertIncidentsToSupabase,
 } from '../services/supabaseIncidents';
+import { subscribeToSupabaseChanges } from '../services/supabaseRealtime';
 
 interface IncidentContextType {
   incidents: Incident[];
@@ -48,7 +49,7 @@ interface IncidentContextType {
 
 const STORAGE_KEY_INCIDENTS = 'cyber_soc_incidents_v2';
 const STORAGE_KEY_WEIGHTS = 'cyber_soc_weights_v2';
-const DATABASE_REFRESH_MS = 4000;
+const DATABASE_FALLBACK_REFRESH_MS = 30000;
 
 const DEFAULT_FILTERS: QueueFilters = {
   searchQuery: '',
@@ -138,7 +139,7 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const refreshSharedIncidents = async () => {
       try {
         const databaseIncidents = await loadIncidentsFromSupabase();
-        if (!cancelled && databaseIncidents.length > 0) {
+        if (!cancelled) {
           setRawIncidents(databaseIncidents);
         }
       } catch (error) {
@@ -147,14 +148,24 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     void hydrateAndMigrateLocalOnly();
-    const interval = window.setInterval(() => void refreshSharedIncidents(), DATABASE_REFRESH_MS);
+
+    const unsubscribeRealtime = subscribeToSupabaseChanges(
+      'incidents',
+      () => void refreshSharedIncidents()
+    );
+
+    const fallbackInterval = window.setInterval(
+      () => void refreshSharedIncidents(),
+      DATABASE_FALLBACK_REFRESH_MS
+    );
 
     const refreshOnFocus = () => void refreshSharedIncidents();
     window.addEventListener('focus', refreshOnFocus);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      unsubscribeRealtime();
+      window.clearInterval(fallbackInterval);
       window.removeEventListener('focus', refreshOnFocus);
     };
   }, []);
