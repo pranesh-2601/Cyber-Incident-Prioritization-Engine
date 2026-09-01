@@ -10,6 +10,7 @@ import {
 import { DEFAULT_WEIGHTS, rankIncidents } from '../utils/scoringEngine';
 import { correlateAllIncidents, buildAttackChains } from '../utils/correlationEngine';
 import { INITIAL_MOCK_INCIDENTS, generateBatchAlerts, generateLiveIncomingAlert } from '../utils/mockData';
+import { loadIncidentsFromSupabase } from '../services/supabaseIncidents';
 
 interface IncidentContextType {
   incidents: Incident[];
@@ -96,6 +97,26 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [criticalAlertBanner, setCriticalAlertBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromDatabase = async () => {
+      try {
+        const databaseIncidents = await loadIncidentsFromSupabase();
+        if (!cancelled && databaseIncidents.length > 0) {
+          setRawIncidents(databaseIncidents);
+        }
+      } catch (error) {
+        console.warn('Supabase unavailable; continuing with local demo incidents.', error);
+      }
+    };
+
+    void hydrateFromDatabase();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { incidents, attackChains } = useMemo(() => {
     const { correlatedIncidents } = correlateAllIncidents(rawIncidents);
