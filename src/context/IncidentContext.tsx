@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Incident,
   AttackChain,
@@ -10,6 +10,15 @@ import {
 import { DEFAULT_WEIGHTS, rankIncidents } from '../utils/scoringEngine';
 import { correlateAllIncidents, buildAttackChains } from '../utils/correlationEngine';
 import { INITIAL_MOCK_INCIDENTS, generateBatchAlerts, generateLiveIncomingAlert } from '../utils/mockData';
+import {
+  isDatabaseConfigured,
+  loadIncidentsFromDatabase,
+  loadWeightsFromDatabase,
+  replaceIncidentsInDatabase,
+  saveWeightsToDatabase,
+} from '../lib/database';
+
+type DatabaseStatus = 'local' | 'connecting' | 'connected' | 'error';
 
 interface IncidentContextType {
   incidents: Incident[];
@@ -28,6 +37,7 @@ interface IncidentContextType {
   setIsLiveMode: (active: boolean) => void;
   criticalAlertBanner: string | null;
   dismissCriticalBanner: () => void;
+  databaseStatus: DatabaseStatus;
   addIncident: (newIncidentData: Omit<Incident, 'id' | 'weightedScore' | 'priorityScore' | 'riskLevel' | 'rank' | 'correlatedIncidentIds'>) => void;
   simulateBatchAlerts: () => void;
   updateIncidentStatus: (id: string, status: IncidentStatus, notes?: string) => void;
@@ -96,6 +106,10 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [criticalAlertBanner, setCriticalAlertBanner] = useState<string | null>(null);
+  const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>(
+    isDatabaseConfigured ? 'connecting' : 'local'
+  );
+  const databaseHydrated = useRef(false);
 
   const { incidents, attackChains } = useMemo(() => {
     const { correlatedIncidents } = correlateAllIncidents(rawIncidents);
@@ -127,11 +141,76 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [attackChains, activeChainDetail]);
 
   useEffect(() => {
+    if (!isDatabaseConfigured) {
+      databaseHydrated.current = true;
+      return;
+    }
+
+    let cancelled = false;
+    setDatabaseStatus('connecting');
+
+    Promise.all([loadIncidentsFromDatabase(), loadWeightsFromDatabase()])
+      .then(async ([storedIncidents, storedWeights]) => {
+        if (cancelled) return;
+
+        if (storedIncidents.length > 0) {
+          setRawIncidents(storedIncidents);
+        } else {
+          await replaceIncidentsInDatabase(rawIncidents);
+        }
+
+        if (storedWeights) {
+          setWeights(storedWeights);
+        } else {
+          await saveWeightsToDatabase(weights);
+        }
+
+        databaseHydrated.current = true;
+        setDatabaseStatus('connected');
+      })
+      .catch((error) => {
+        console.error('Database hydration failed. Continuing with local data:', error);
+        databaseHydrated.current = true;
+        setDatabaseStatus('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY_INCIDENTS, JSON.stringify(rawIncidents));
+
+    if (!isDatabaseConfigured || !databaseHydrated.current) return;
+
+    const timeout = window.setTimeout(() => {
+      replaceIncidentsInDatabase(rawIncidents)
+        .then(() => setDatabaseStatus('connected'))
+        .catch((error) => {
+          console.error('Failed to persist incidents to database:', error);
+          setDatabaseStatus('error');
+        });
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
   }, [rawIncidents]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_WEIGHTS, JSON.stringify(weights));
+
+    if (!isDatabaseConfigured || !databaseHydrated.current) return;
+
+    const timeout = window.setTimeout(() => {
+      saveWeightsToDatabase(weights)
+        .then(() => setDatabaseStatus('connected'))
+        .catch((error) => {
+          console.error('Failed to persist scoring weights to database:', error);
+          setDatabaseStatus('error');
+        });
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
   }, [weights]);
 
   const metrics: SOCMetrics = useMemo(() => {
@@ -291,6 +370,7 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsLiveMode,
         criticalAlertBanner,
         dismissCriticalBanner,
+        databaseStatus,
         addIncident,
         simulateBatchAlerts,
         updateIncidentStatus,
