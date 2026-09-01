@@ -119,7 +119,7 @@ function AppContent() {
                     <div className="mission-status-cluster">
                       <span><i className="bg-emerald-400" />SCORING ENGINE ONLINE</span>
                       <span><i className="bg-cyan-400" />CORRELATION ACTIVE</span>
-                      <span><i className="bg-violet-400" />AI EXPLANATION READY</span>
+                      <span><i className="bg-violet-400" />EXPLAINABILITY ENGINE READY</span>
                     </div>
                   </div>
 
