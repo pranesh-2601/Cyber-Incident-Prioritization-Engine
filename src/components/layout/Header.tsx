@@ -18,12 +18,17 @@ interface HeaderProps {
 
 type DatabaseStatus = 'syncing' | 'connected' | 'offline';
 
+const escapeCsvValue = (value: unknown) => {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   const {
+    incidents,
     isLiveMode,
     setIsLiveMode,
     simulateBatchAlerts,
-    exportDataJSON,
     filters,
     setFilters,
   } = useIncidents();
@@ -50,6 +55,70 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       window.clearInterval(interval);
     };
   }, []);
+
+  const exportQueueCSV = () => {
+    const headers = [
+      'Rank',
+      'Incident ID',
+      'Title',
+      'Type',
+      'Priority Score',
+      'Risk Level',
+      'Status',
+      'Asset',
+      'Source IP',
+      'Destination IP',
+      'User',
+      'Severity',
+      'Business Impact',
+      'Asset Importance',
+      'Data Sensitivity',
+      'Attack Confidence',
+      'Affected Users',
+      'Correlation Score',
+      'Connected Alerts',
+      'Attack Chain',
+      'Timestamp',
+    ];
+
+    const rows = incidents.map((incident) => [
+      incident.rank ?? '',
+      incident.id,
+      incident.title,
+      incident.type,
+      incident.priorityScore,
+      incident.riskLevel,
+      incident.status,
+      incident.asset,
+      incident.sourceIp,
+      incident.destinationIp || '',
+      incident.user,
+      incident.factors.severity,
+      incident.factors.businessImpact,
+      incident.factors.assetImportance,
+      incident.factors.dataSensitivity,
+      incident.factors.attackConfidence,
+      incident.factors.affectedUsers,
+      incident.factors.correlationScore,
+      incident.correlatedIncidentIds.length,
+      incident.attackChainId || '',
+      new Date(incident.timestamp).toLocaleString(),
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsvValue).join(','))
+      .join('\r\n');
+
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = `cyber-soc-prioritized-queue-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const titles: Record<ActiveTab, { title: string; subtitle: string }> = {
     dashboard: { title: 'SOC Overview & Command Radar', subtitle: 'Live telemetry, attack chain health, and prioritized alert statistics' },
@@ -148,11 +217,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         </button>
 
         <button
-          onClick={exportDataJSON}
-          className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors"
-          title="Export Prioritized Queue as JSON"
+          onClick={exportQueueCSV}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition-colors text-xs font-mono font-semibold"
+          title="Export the current prioritized incident queue as a CSV spreadsheet"
         >
           <Download className="w-4 h-4" />
+          <span className="hidden xl:inline">Export Queue CSV</span>
+          <span className="xl:hidden">CSV</span>
         </button>
       </div>
     </header>
