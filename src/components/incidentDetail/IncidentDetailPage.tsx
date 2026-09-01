@@ -1,18 +1,10 @@
 import React from 'react';
 import { 
   ArrowLeft, 
-  ShieldAlert, 
   Clock, 
-  Server, 
-  User, 
   Network, 
   Layers, 
-  BrainCircuit, 
-  FileText, 
-  AlertTriangle, 
   CheckCircle2,
-  Lock,
-  ExternalLink,
   ChevronRight
 } from 'lucide-react';
 import { Incident } from '../../types/incident';
@@ -20,10 +12,8 @@ import { useIncidents } from '../../context/IncidentContext';
 import { RiskBadge, StatusBadge, AssetTierBadge } from '../common/Badge';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { FactorBreakdownBar } from '../explainability/FactorBreakdownBar';
-import { SOCPlaybookActions } from './SOCPlaybookActions';
 import { IncidentActivityHistory } from './IncidentActivityHistory';
 import { calculateFactorContributions } from '../../utils/scoringEngine';
-import { generateRankingExplanation } from '../../utils/explainability';
 
 export const IncidentDetailPage: React.FC<{
   incident: Incident;
@@ -33,7 +23,6 @@ export const IncidentDetailPage: React.FC<{
   const { incidents, updateIncidentStatus } = useIncidents();
 
   const contributions = calculateFactorContributions(incident.factors);
-  const explanation = generateRankingExplanation(incident, incidents);
 
   const correlatedIncidents = incidents.filter((i) =>
     incident.correlatedIncidentIds.includes(i.id)
@@ -195,10 +184,6 @@ export const IncidentDetailPage: React.FC<{
       )}
 
       <IncidentActivityHistory incidentId={incident.id} />
-
-      <div className="glass-panel p-6 rounded-xl border border-slate-800">
-        <SOCPlaybookActions incident={incident} />
-      </div>
     </div>
   );
 };
