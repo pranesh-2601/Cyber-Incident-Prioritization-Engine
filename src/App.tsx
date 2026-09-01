@@ -74,6 +74,11 @@ function AppContent() {
     }
   };
 
+  const handleOpenIncidentDetail = (incident: Incident) => {
+    setSelectedIncident(null);
+    setViewingDetailIncident(incident);
+  };
+
   if (!isAuthenticated) return <LandingPage onEnterApp={handleLogin} />;
 
   return (
@@ -133,7 +138,8 @@ function AppContent() {
                   <div className="mission-queue-wrap">
                     <div className="mission-section-kicker">RANKED INCIDENTS // WHAT TO INVESTIGATE NEXT</div>
                     <IncidentQueueTable
-                      onSelectIncident={setSelectedIncident}
+                      onOpenIncidentDetail={handleOpenIncidentDetail}
+                      onExplainIncident={setSelectedIncident}
                       onCompareIncidents={handleTriggerCompare}
                     />
                   </div>
@@ -141,7 +147,11 @@ function AppContent() {
               )}
 
               {activeTab === 'queue' && (
-                <IncidentQueueTable onSelectIncident={setSelectedIncident} onCompareIncidents={handleTriggerCompare} />
+                <IncidentQueueTable
+                  onOpenIncidentDetail={handleOpenIncidentDetail}
+                  onExplainIncident={setSelectedIncident}
+                  onCompareIncidents={handleTriggerCompare}
+                />
               )}
               {activeTab === 'chains' && <AttackChainVisualizer onSelectIncident={setSelectedIncident} />}
               {activeTab === 'analytics' && <Suspense fallback={<SectionFallback />}><AnalyticsDashboard /></Suspense>}
