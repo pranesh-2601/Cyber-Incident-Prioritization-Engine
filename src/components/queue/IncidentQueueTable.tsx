@@ -7,9 +7,10 @@ import { QueueFilters } from './QueueFilters';
 import { BatchActionBar } from './BatchActionBar';
 
 export const IncidentQueueTable: React.FC<{
-  onSelectIncident: (inc: Incident) => void;
+  onOpenIncidentDetail: (inc: Incident) => void;
+  onExplainIncident: (inc: Incident) => void;
   onCompareIncidents: (a: Incident, b: Incident) => void;
-}> = ({ onSelectIncident, onCompareIncidents }) => {
+}> = ({ onOpenIncidentDetail, onExplainIncident, onCompareIncidents }) => {
   const { incidents, filters, updateIncidentStatus } = useIncidents();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -99,7 +100,17 @@ export const IncidentQueueTable: React.FC<{
                 filteredIncidents.map((incident, index) => {
                   const previousIncident = index > 0 ? filteredIncidents[index - 1] : undefined;
                   return (
-                    <IncidentRow key={incident.id} incident={incident} previousIncident={previousIncident} isSelected={selectedIds.includes(incident.id)} onToggleSelect={toggleSelectRow} onClickRow={onSelectIncident} onCompareWithPrevious={onCompareIncidents} onQuickMitigate={(id) => updateIncidentStatus(id, 'MITIGATED', 'Quick mitigation applied via SOC queue.')} />
+                    <IncidentRow
+                      key={incident.id}
+                      incident={incident}
+                      previousIncident={previousIncident}
+                      isSelected={selectedIds.includes(incident.id)}
+                      onToggleSelect={toggleSelectRow}
+                      onOpenDetail={onOpenIncidentDetail}
+                      onExplainRank={onExplainIncident}
+                      onCompareWithPrevious={onCompareIncidents}
+                      onQuickMitigate={(id) => updateIncidentStatus(id, 'MITIGATED', 'Quick mitigation applied via SOC queue.')}
+                    />
                   );
                 })
               )}
@@ -108,8 +119,8 @@ export const IncidentQueueTable: React.FC<{
         </div>
 
         <div className="px-5 py-3 border-t border-slate-800/80 bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
-          <div className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-cyan-400" /><span>Click any incident to see, in simple language, why it received that score and rank.</span></div>
-          <span className="font-mono">Technical ranking still uses score → correlation → severity → asset importance → time</span>
+          <div className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-cyan-400" /><span>Click any incident to open full details, response actions, and activity history.</span></div>
+          <span className="font-mono">Use the brain icon to see why the incident received its score and rank</span>
         </div>
       </div>
 
