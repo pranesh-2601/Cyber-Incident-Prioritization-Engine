@@ -5,7 +5,7 @@ import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { ThreatTicker } from './components/layout/ThreatTicker';
 import { SummaryCards } from './components/dashboard/SummaryCards';
-import { ThreatRadar } from './components/dashboard/ThreatRadar';
+import { MissionControlDeck } from './components/dashboard/MissionControlDeck';
 import { IncidentQueueTable } from './components/queue/IncidentQueueTable';
 import { AttackChainVisualizer } from './components/attackChain/AttackChainVisualizer';
 import { AddIncidentForm } from './components/ingestion/AddIncidentForm';
@@ -17,9 +17,7 @@ import { HeadToHeadComparison } from './components/explainability/HeadToHeadComp
 import { Incident } from './types/incident';
 
 const AnalyticsDashboard = lazy(() =>
-  import('./components/analytics/AnalyticsDashboard').then((module) => ({
-    default: module.AnalyticsDashboard,
-  }))
+  import('./components/analytics/AnalyticsDashboard').then((module) => ({ default: module.AnalyticsDashboard }))
 );
 
 const SectionFallback = () => (
@@ -29,18 +27,11 @@ const SectionFallback = () => (
 );
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [userPersona, setUserPersona] = useState<string>('Lead Incident Commander');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userPersona, setUserPersona] = useState('Lead Incident Commander');
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [viewingDetailIncident, setViewingDetailIncident] = useState<Incident | null>(null);
-
-  const {
-    selectedIncident,
-    setSelectedIncident,
-    comparingIncident,
-    setComparingIncident,
-    incidents,
-  } = useIncidents();
+  const { selectedIncident, setSelectedIncident, comparingIncident, setComparingIncident, incidents } = useIncidents();
   const [secondaryCompareIncident, setSecondaryCompareIncident] = useState<Incident | null>(null);
 
   const handleLogin = (persona?: string) => {
@@ -56,29 +47,23 @@ function AppContent() {
     setSecondaryCompareIncident(null);
   };
 
-  const handleOpenExplainModal = (incident: Incident) => {
-    setSelectedIncident(incident);
-  };
-
   const handleTriggerCompare = (incidentA: Incident, incidentB: Incident) => {
     setComparingIncident(incidentA);
     setSecondaryCompareIncident(incidentB);
   };
 
   const handleCompareWithNextFromModal = (current: Incident) => {
-    const next = incidents.find((i) => i.rank === (current.rank || 1) + 1);
+    const next = incidents.find((incident) => incident.rank === (current.rank || 1) + 1);
     if (next) {
       setSelectedIncident(null);
       handleTriggerCompare(current, next);
     }
   };
 
-  if (!isAuthenticated) {
-    return <LandingPage onEnterApp={handleLogin} />;
-  }
+  if (!isAuthenticated) return <LandingPage onEnterApp={handleLogin} />;
 
   return (
-    <div className="flex min-h-screen bg-[#030712] text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div className="mission-shell flex min-h-screen text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -93,7 +78,7 @@ function AppContent() {
         <Header activeTab={activeTab} setActiveTab={setActiveTab} />
         <ThreatTicker />
 
-        <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+        <main className="flex-1 p-4 lg:p-5 max-w-[1680px] w-full mx-auto space-y-5">
           {viewingDetailIncident ? (
             <IncidentDetailPage
               incident={viewingDetailIncident}
@@ -103,63 +88,55 @@ function AppContent() {
           ) : (
             <>
               {activeTab === 'dashboard' && (
-                <div className="space-y-6">
+                <div className="space-y-5">
+                  <div className="mission-command-bar">
+                    <div>
+                      <div className="mission-eyebrow">THREATOPS // AUTONOMOUS SOC COMMAND</div>
+                      <h1 className="mission-title">Mission Control</h1>
+                    </div>
+                    <div className="mission-status-cluster">
+                      <span><i className="bg-emerald-400" />SCORING ENGINE ONLINE</span>
+                      <span><i className="bg-cyan-400" />CORRELATION ACTIVE</span>
+                      <span><i className="bg-violet-400" />AI EXPLAINABILITY READY</span>
+                    </div>
+                  </div>
+
                   <SummaryCards
                     onNavigateToQueue={() => setActiveTab('queue')}
                     onNavigateToChains={() => setActiveTab('chains')}
                   />
-                  <ThreatRadar
-                    onSelectIncident={handleOpenExplainModal}
+
+                  <MissionControlDeck
+                    onSelectIncident={setSelectedIncident}
                     onSelectChain={() => setActiveTab('chains')}
                     onNavigateToQueue={() => setActiveTab('queue')}
                     onNavigateToChains={() => setActiveTab('chains')}
                   />
-                  <IncidentQueueTable
-                    onSelectIncident={handleOpenExplainModal}
-                    onCompareIncidents={handleTriggerCompare}
-                  />
+
+                  <div className="mission-queue-wrap">
+                    <div className="mission-section-kicker">TACTICAL QUEUE // RANKED INCIDENTS</div>
+                    <IncidentQueueTable
+                      onSelectIncident={setSelectedIncident}
+                      onCompareIncidents={handleTriggerCompare}
+                    />
+                  </div>
                 </div>
               )}
 
               {activeTab === 'queue' && (
-                <IncidentQueueTable
-                  onSelectIncident={handleOpenExplainModal}
-                  onCompareIncidents={handleTriggerCompare}
-                />
+                <IncidentQueueTable onSelectIncident={setSelectedIncident} onCompareIncidents={handleTriggerCompare} />
               )}
-
-              {activeTab === 'chains' && (
-                <AttackChainVisualizer onSelectIncident={handleOpenExplainModal} />
-              )}
-
-              {activeTab === 'analytics' && (
-                <Suspense fallback={<SectionFallback />}>
-                  <AnalyticsDashboard />
-                </Suspense>
-              )}
-
-              {activeTab === 'add' && (
-                <AddIncidentForm onSuccessNavigateToQueue={() => setActiveTab('queue')} />
-              )}
-
-              {activeTab === 'simulation' && (
-                <SimulationController onNavigateToQueue={() => setActiveTab('queue')} />
-              )}
-
-              {activeTab === 'settings' && (
-                <WeightCustomizer onNavigateToQueue={() => setActiveTab('queue')} />
-              )}
+              {activeTab === 'chains' && <AttackChainVisualizer onSelectIncident={setSelectedIncident} />}
+              {activeTab === 'analytics' && <Suspense fallback={<SectionFallback />}><AnalyticsDashboard /></Suspense>}
+              {activeTab === 'add' && <AddIncidentForm onSuccessNavigateToQueue={() => setActiveTab('queue')} />}
+              {activeTab === 'simulation' && <SimulationController onNavigateToQueue={() => setActiveTab('queue')} />}
+              {activeTab === 'settings' && <WeightCustomizer onNavigateToQueue={() => setActiveTab('queue')} />}
             </>
           )}
         </main>
       </div>
 
-      <ExplainableRankingModal
-        incident={selectedIncident}
-        onClose={() => setSelectedIncident(null)}
-        onCompareWithNext={handleCompareWithNextFromModal}
-      />
-
+      <ExplainableRankingModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} onCompareWithNext={handleCompareWithNextFromModal} />
       <HeadToHeadComparison
         incidentA={comparingIncident}
         incidentB={secondaryCompareIncident}
@@ -173,9 +150,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <IncidentProvider>
-      <AppContent />
-    </IncidentProvider>
-  );
+  return <IncidentProvider><AppContent /></IncidentProvider>;
 }
