@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Incident, 
-  AttackChain, 
-  FactorWeights, 
-  IncidentStatus, 
+import {
+  Incident,
+  AttackChain,
+  FactorWeights,
+  IncidentStatus,
   SOCMetrics,
-  QueueFilters 
+  QueueFilters
 } from '../types/incident';
 import { DEFAULT_WEIGHTS, rankIncidents } from '../utils/scoringEngine';
-import { correlateAllIncidents } from '../utils/correlationEngine';
+import { correlateAllIncidents, buildAttackChains } from '../utils/correlationEngine';
 import { INITIAL_MOCK_INCIDENTS, generateBatchAlerts, generateLiveIncomingAlert } from '../utils/mockData';
 
 interface IncidentContextType {
@@ -18,22 +18,16 @@ interface IncidentContextType {
   metrics: SOCMetrics;
   filters: QueueFilters;
   setFilters: React.Dispatch<React.SetStateAction<QueueFilters>>;
-  
-  // Selected state for modals/pages
   selectedIncident: Incident | null;
   setSelectedIncident: (incident: Incident | null) => void;
   comparingIncident: Incident | null;
   setComparingIncident: (incident: Incident | null) => void;
   activeChainDetail: AttackChain | null;
   setActiveChainDetail: (chain: AttackChain | null) => void;
-  
-  // Live Mode & Alerts
   isLiveMode: boolean;
   setIsLiveMode: (active: boolean) => void;
   criticalAlertBanner: string | null;
   dismissCriticalBanner: () => void;
-  
-  // Actions
   addIncident: (newIncidentData: Omit<Incident, 'id' | 'weightedScore' | 'priorityScore' | 'riskLevel' | 'rank' | 'correlatedIncidentIds'>) => void;
   simulateBatchAlerts: () => void;
   updateIncidentStatus: (id: string, status: IncidentStatus, notes?: string) => void;
@@ -61,7 +55,6 @@ const DEFAULT_FILTERS: QueueFilters = {
 const IncidentContext = createContext<IncidentContextType | undefined>(undefined);
 
 export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load weights
   const [weights, setWeights] = useState<FactorWeights>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_WEIGHTS);
     if (saved) {
@@ -74,7 +67,6 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return DEFAULT_WEIGHTS;
   });
 
-  // Load raw incidents
   const [rawIncidents, setRawIncidents] = useState<Incident[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_INCIDENTS);
     if (saved) {
@@ -88,37 +80,47 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return INITIAL_MOCK_INCIDENTS;
   });
 
-  // Modals / Panels
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [comparingIncident, setComparingIncident] = useState<Incident | null>(null);
   const [activeChainDetail, setActiveChainDetail] = useState<AttackChain | null>(null);
-
-  // Filters
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
-
-  // Live Mode Simulation
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [criticalAlertBanner, setCriticalAlertBanner] = useState<string | null>(null);
 
-  // Process correlation and ranking dynamically whenever raw incidents or weights change
+  // Correlate first, rank with the active weights, then rebuild chains from ranked
+  // incidents so every attack-chain node carries the current priority score.
   const { incidents, attackChains } = useMemo(() => {
-    const { correlatedIncidents, attackChains: chains } = correlateAllIncidents(rawIncidents);
+    const { correlatedIncidents } = correlateAllIncidents(rawIncidents);
     const ranked = rankIncidents(correlatedIncidents, weights);
+    const chains = buildAttackChains(ranked);
+
     return {
       incidents: ranked,
       attackChains: chains,
     };
   }, [rawIncidents, weights]);
 
-  // Keep selected incident up to date with latest ranked data
   useEffect(() => {
     if (selectedIncident) {
       const updated = incidents.find((i) => i.id === selectedIncident.id);
       if (updated) setSelectedIncident(updated);
     }
-  }, [incidents]);
+  }, [incidents, selectedIncident]);
 
-  // Save to LocalStorage
+  useEffect(() => {
+    if (comparingIncident) {
+      const updated = incidents.find((i) => i.id === comparingIncident.id);
+      if (updated) setComparingIncident(updated);
+    }
+  }, [incidents, comparingIncident]);
+
+  useEffect(() => {
+    if (activeChainDetail) {
+      const updated = attackChains.find((chain) => chain.id === activeChainDetail.id);
+      if (updated) setActiveChainDetail(updated);
+    }
+  }, [attackChains, activeChainDetail]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_INCIDENTS, JSON.stringify(rawIncidents));
   }, [rawIncidents]);
@@ -127,7 +129,6 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem(STORAGE_KEY_WEIGHTS, JSON.stringify(weights));
   }, [weights]);
 
-  // Compute SOC Metrics
   const metrics: SOCMetrics = useMemo(() => {
     const total = incidents.length;
     const criticalCount = incidents.filter((i) => i.riskLevel === 'CRITICAL' && i.status !== 'MITIGATED').length;
@@ -135,10 +136,10 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const mediumCount = incidents.filter((i) => i.riskLevel === 'MEDIUM' && i.status !== 'MITIGATED').length;
     const lowCount = incidents.filter((i) => i.riskLevel === 'LOW' && i.status !== 'MITIGATED').length;
     const activeAttackChains = attackChains.filter((c) => c.status === 'ACTIVE').length;
-    
+
     const uniqueAssets = new Set(incidents.map((i) => i.asset));
-    const avgScore = total > 0 
-      ? Math.round((incidents.reduce((sum, i) => sum + i.priorityScore, 0) / total) * 10) / 10 
+    const avgScore = total > 0
+      ? Math.round((incidents.reduce((sum, i) => sum + i.priorityScore, 0) / total) * 10) / 10
       : 0;
     const mitigated = incidents.filter((i) => i.status === 'MITIGATED').length;
 
@@ -156,14 +157,12 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [incidents, attackChains, isLiveMode]);
 
-  // Live Mode Ticker
   useEffect(() => {
     if (!isLiveMode) return;
 
     const interval = setInterval(() => {
       setRawIncidents((prev) => {
         const newAlert = generateLiveIncomingAlert(prev);
-        // Trigger banner
         setCriticalAlertBanner(
           `CRITICAL ATTACK CHAIN DETECTED: ${newAlert.title} (Target: ${newAlert.asset} | IP: ${newAlert.sourceIp})`
         );
@@ -243,6 +242,7 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setWeights(DEFAULT_WEIGHTS);
     setSelectedIncident(null);
     setComparingIncident(null);
+    setActiveChainDetail(null);
     setFilters(DEFAULT_FILTERS);
   }, []);
 
