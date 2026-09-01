@@ -41,15 +41,20 @@ export const FACTOR_LABELS: Record<keyof ScoringFactors, { name: string; descrip
   },
 };
 
+export function getWeightSum(weights: FactorWeights = DEFAULT_WEIGHTS): number {
+  return Object.values(weights).reduce((a, b) => a + b, 0) || 1.0;
+}
+
 /**
- * Calculates raw weighted score (1.0 - 10.0) based on configured weights
+ * Calculates raw weighted score (1.0 - 10.0) based on configured weights.
+ * Weights are normalized by their total so custom weight sets remain on the same scale.
  */
 export function calculateWeightedScore(
   factors: ScoringFactors,
   weights: FactorWeights = DEFAULT_WEIGHTS
 ): number {
-  const sumWeights = Object.values(weights).reduce((a, b) => a + b, 0) || 1.0;
-  
+  const sumWeights = getWeightSum(weights);
+
   const rawWeighted = (
     factors.severity * weights.severity +
     factors.businessImpact * weights.businessImpact +
@@ -60,7 +65,6 @@ export function calculateWeightedScore(
     factors.correlationScore * weights.correlationScore
   ) / sumWeights;
 
-  // Clamp within 1.0 to 10.0
   return Math.min(10.0, Math.max(1.0, rawWeighted));
 }
 
@@ -73,7 +77,7 @@ export function calculatePriorityScore(
 ): number {
   const weightedScore = calculateWeightedScore(factors, weights);
   const finalScore = weightedScore * 10;
-  return Math.round(finalScore * 10) / 10; // Round to 1 decimal place
+  return Math.round(finalScore * 10) / 10;
 }
 
 /**
@@ -87,13 +91,15 @@ export function getRiskLevel(score: number): RiskLevel {
 }
 
 /**
- * Computes individual factor contributions to the final score
+ * Computes individual factor contributions to the final score using the same
+ * normalized-weight math as calculatePriorityScore().
  */
 export function calculateFactorContributions(
   factors: ScoringFactors,
   weights: FactorWeights = DEFAULT_WEIGHTS
 ): FactorContribution[] {
   const finalScore = calculatePriorityScore(factors, weights);
+  const sumWeights = getWeightSum(weights);
   const keys: (keyof ScoringFactors)[] = [
     'severity',
     'businessImpact',
@@ -107,14 +113,15 @@ export function calculateFactorContributions(
   return keys.map((key) => {
     const val = factors[key];
     const weight = weights[key];
-    const contribution = Math.round(val * weight * 10 * 10) / 10;
+    const normalizedWeight = weight / sumWeights;
+    const contribution = Math.round(val * normalizedWeight * 10 * 10) / 10;
     const percentage = finalScore > 0 ? Math.round((contribution / finalScore) * 100) : 0;
 
     return {
       factor: key,
       name: FACTOR_LABELS[key].name,
       value: val,
-      weight,
+      weight: normalizedWeight,
       contribution,
       percentage,
     };
@@ -130,23 +137,18 @@ export function calculateFactorContributions(
  * 5. Timestamp (More recent wins)
  */
 export function compareIncidents(a: Incident, b: Incident): number {
-  // 1. Priority Score
   if (b.priorityScore !== a.priorityScore) {
     return b.priorityScore - a.priorityScore;
   }
-  // 2. Correlation Score
   if (b.factors.correlationScore !== a.factors.correlationScore) {
     return b.factors.correlationScore - a.factors.correlationScore;
   }
-  // 3. Severity
   if (b.factors.severity !== a.factors.severity) {
     return b.factors.severity - a.factors.severity;
   }
-  // 4. Asset Importance
   if (b.factors.assetImportance !== a.factors.assetImportance) {
     return b.factors.assetImportance - a.factors.assetImportance;
   }
-  // 5. Timestamp (Most recent first)
   const timeA = new Date(a.timestamp).getTime();
   const timeB = new Date(b.timestamp).getTime();
   return timeB - timeA;
@@ -159,7 +161,6 @@ export function rankIncidents(
   incidents: Incident[],
   weights: FactorWeights = DEFAULT_WEIGHTS
 ): Incident[] {
-  // Re-calculate scores with current weights first
   const updated = incidents.map((inc) => {
     const weightedScore = calculateWeightedScore(inc.factors, weights);
     const priorityScore = calculatePriorityScore(inc.factors, weights);
@@ -172,10 +173,8 @@ export function rankIncidents(
     };
   });
 
-  // Sort deterministically
   const sorted = [...updated].sort(compareIncidents);
 
-  // Assign ranks
   return sorted.map((inc, index) => ({
     ...inc,
     rank: index + 1,

@@ -1,16 +1,8 @@
 import React from 'react';
-import { 
-  GitCompare, 
-  ArrowRight, 
-  Sparkles, 
-  ShieldAlert, 
-  TrendingUp, 
-  Scale,
-  CheckCircle,
-  XCircle
-} from 'lucide-react';
+import { Sparkles, Scale } from 'lucide-react';
 import { Incident } from '../../types/incident';
 import { compareIncidentsExplainable } from '../../utils/explainability';
+import { useIncidents } from '../../context/IncidentContext';
 import { Modal } from '../common/Modal';
 import { RiskBadge } from '../common/Badge';
 import { ScoreGauge } from '../common/ScoreGauge';
@@ -26,9 +18,11 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
   incidentB,
   onClose,
 }) => {
+  const { weights } = useIncidents();
+
   if (!incidentA || !incidentB) return null;
 
-  const comparison = compareIncidentsExplainable(incidentA, incidentB);
+  const comparison = compareIncidentsExplainable(incidentA, incidentB, weights);
   const { higherIncident, lowerIncident, overallScoreDiff, narrative, deltas, dominantFactor } = comparison;
 
   return (
@@ -45,9 +39,7 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
       subtitle={`Explainable Comparative Telemetry: Why #${higherIncident.rank} outranks #${lowerIncident.rank}`}
     >
       <div className="space-y-6">
-        {/* Side-by-Side Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Higher Rank Card */}
           <div className="glass-panel p-4 rounded-xl border border-cyan-500/40 bg-gradient-to-b from-cyan-950/20 to-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.15)] relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -73,7 +65,6 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
             </div>
           </div>
 
-          {/* Lower Rank Card */}
           <div className="glass-panel p-4 rounded-xl border border-slate-800 bg-slate-900/60 relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -100,7 +91,6 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
           </div>
         </div>
 
-        {/* Narrative Reason Box */}
         <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30 flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
@@ -116,7 +106,6 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
           </div>
         </div>
 
-        {/* Factor-by-Factor Differential Table */}
         <div className="glass-panel rounded-xl border border-slate-800 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
             <h4 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
@@ -172,7 +161,6 @@ export const HeadToHeadComparison: React.FC<HeadToHeadComparisonProps> = ({
           </table>
         </div>
 
-        {/* Action button */}
         <div className="flex justify-end">
           <button
             onClick={onClose}
