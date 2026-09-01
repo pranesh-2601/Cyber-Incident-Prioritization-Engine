@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, ArrowRight, Bot, Crosshair, Network, ShieldAlert, Sparkles, Target, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BrainCircuit, Crosshair, Network, ShieldAlert, Sparkles, Target, Zap } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
 import { Incident, AttackChain } from '../../types/incident';
 import { RiskBadge } from '../common/Badge';
@@ -147,7 +147,7 @@ export const MissionControlDeck: React.FC<{
 
       <section className="mission-panel mission-panel-right">
         <div className="mission-panel-heading">
-          <div className="flex items-center gap-2"><Bot className="w-4 h-4 text-violet-300" /><span>AI Explanation <span className="text-slate-500 font-normal">— why the ranking makes sense</span></span></div>
+          <div className="flex items-center gap-2"><BrainCircuit className="w-4 h-4 text-violet-300" /><span>Explainability Engine <span className="text-slate-500 font-normal">— deterministic reasons for the ranking</span></span></div>
           <span className="text-[9px] font-mono text-violet-300">PLAIN LANGUAGE</span>
         </div>
 
