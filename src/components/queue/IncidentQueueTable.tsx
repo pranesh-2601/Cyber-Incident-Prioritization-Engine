@@ -88,6 +88,7 @@ export const IncidentQueueTable: React.FC<{
                 <th className="py-3 px-3">Risk Level</th>
                 <th className="py-3 px-3">Connected Alerts</th>
                 <th className="py-3 px-3">Detected</th>
+                <th className="py-3 px-3">CIRT Escalation</th>
                 <th className="py-3 px-3">Current State</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -95,7 +96,7 @@ export const IncidentQueueTable: React.FC<{
 
             <tbody className="divide-y divide-slate-800/60">
               {filteredIncidents.length === 0 ? (
-                <tr><td colSpan={12} className="py-12 text-center text-slate-500 text-xs font-mono">No incidents match the selected filters. Clear the filters or simulate new alerts.</td></tr>
+                <tr><td colSpan={13} className="py-12 text-center text-slate-500 text-xs font-mono">No incidents match the selected filters. Clear the filters or simulate new alerts.</td></tr>
               ) : (
                 filteredIncidents.map((incident, index) => {
                   const previousIncident = index > 0 ? filteredIncidents[index - 1] : undefined;
