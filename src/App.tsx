@@ -12,6 +12,7 @@ import { AddIncidentForm } from './components/ingestion/AddIncidentForm';
 import { IncidentDetailPage } from './components/incidentDetail/IncidentDetailPage';
 import { SimulationController } from './components/simulation/SimulationController';
 import { WeightCustomizer } from './components/settings/WeightCustomizer';
+import { SharedWeightsSync } from './components/settings/SharedWeightsSync';
 import { ExplainableRankingModal } from './components/explainability/ExplainableRankingModal';
 import { HeadToHeadComparison } from './components/explainability/HeadToHeadComparison';
 import { Incident } from './types/incident';
@@ -166,5 +167,10 @@ function AppContent() {
 }
 
 export default function App() {
-  return <IncidentProvider><AppContent /></IncidentProvider>;
+  return (
+    <IncidentProvider>
+      <SharedWeightsSync />
+      <AppContent />
+    </IncidentProvider>
+  );
 }
