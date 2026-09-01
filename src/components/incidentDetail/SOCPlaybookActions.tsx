@@ -1,27 +1,34 @@
 import React, { useState } from 'react';
-import { 
-  ShieldAlert, 
-  Ban, 
-  UserX, 
-  ServerOff, 
-  KeyRound, 
-  Search, 
-  ArrowUpRight, 
-  CheckCircle2, 
-  FileText
+import {
+  ShieldAlert,
+  Ban,
+  UserX,
+  ServerOff,
+  KeyRound,
+  ArrowUpRight,
+  CheckCircle2,
 } from 'lucide-react';
 import { Incident } from '../../types/incident';
 import { useIncidents } from '../../context/IncidentContext';
+import { recordPlaybookAuditEvent } from '../../services/incidentAudit';
 
 export const SOCPlaybookActions: React.FC<{ incident: Incident }> = ({ incident }) => {
   const { updateIncidentStatus } = useIncidents();
   const [executedActions, setExecutedActions] = useState<string[]>([]);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
-  const executeAction = (actionName: string, message: string) => {
-    setExecutedActions((prev) => [...prev, actionName]);
+  const executeAction = async (actionId: string, actionName: string, message: string) => {
+    setExecutedActions((prev) => [...prev, actionId]);
     setActionFeedback(message);
+
     updateIncidentStatus(incident.id, 'INVESTIGATING', `Executed Playbook Action: ${actionName}`);
+
+    try {
+      await recordPlaybookAuditEvent(incident.id, actionId, actionName, message);
+    } catch (error) {
+      console.warn('Could not record playbook action in audit history.', error);
+    }
+
     setTimeout(() => setActionFeedback(null), 4000);
   };
 
@@ -77,9 +84,7 @@ export const SOCPlaybookActions: React.FC<{ incident: Incident }> = ({ incident 
             Automated SOC Mitigation Playbooks
           </h4>
         </div>
-        <span className="text-[11px] font-mono text-slate-400">
-          Zero-Trust Orchestration (SOAR)
-        </span>
+        <span className="text-[11px] font-mono text-slate-400">Zero-Trust Orchestration (SOAR)</span>
       </div>
 
       {actionFeedback && (
@@ -97,7 +102,7 @@ export const SOCPlaybookActions: React.FC<{ incident: Incident }> = ({ incident 
           return (
             <button
               key={pb.id}
-              onClick={() => executeAction(pb.id, pb.successMsg)}
+              onClick={() => void executeAction(pb.id, pb.name, pb.successMsg)}
               disabled={isDone}
               className={`p-3.5 rounded-xl text-left border transition-all flex items-start gap-3 ${
                 isDone
@@ -106,25 +111,15 @@ export const SOCPlaybookActions: React.FC<{ incident: Incident }> = ({ incident 
               }`}
             >
               <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 shrink-0 mt-0.5">
-                {isDone ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Icon className="w-4 h-4" />
-                )}
+                {isDone ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Icon className="w-4 h-4" />}
               </div>
 
               <div>
                 <div className="text-xs font-bold text-white font-mono flex items-center gap-2">
                   <span>{pb.name}</span>
-                  {isDone && (
-                    <span className="text-[10px] text-emerald-400 font-mono">
-                      [EXECUTED]
-                    </span>
-                  )}
+                  {isDone && <span className="text-[10px] text-emerald-400 font-mono">[EXECUTED]</span>}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1 font-sans leading-snug">
-                  {pb.desc}
-                </p>
+                <p className="text-[11px] text-slate-400 mt-1 font-sans leading-snug">{pb.desc}</p>
               </div>
             </button>
           );
