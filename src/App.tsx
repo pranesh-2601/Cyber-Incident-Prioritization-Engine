@@ -26,6 +26,19 @@ const SectionFallback = () => (
   </div>
 );
 
+const SimpleTermGuide = () => (
+  <div className="rounded-xl border border-cyan-950/80 bg-slate-950/65 px-4 py-3 flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-5 text-[11px] text-slate-400">
+    <span className="font-mono font-bold text-cyan-300 shrink-0">SIMPLE GUIDE</span>
+    <span><strong className="text-slate-200">Priority Score</strong> = how urgently it should be checked</span>
+    <span className="hidden xl:inline text-slate-700">•</span>
+    <span><strong className="text-slate-200">Correlation</strong> = alerts that appear connected</span>
+    <span className="hidden xl:inline text-slate-700">•</span>
+    <span><strong className="text-slate-200">Attack Chain</strong> = multiple steps of the same attack</span>
+    <span className="hidden xl:inline text-slate-700">•</span>
+    <span><strong className="text-slate-200">Risk Level</strong> = how serious the incident is</span>
+  </div>
+);
+
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userPersona, setUserPersona] = useState('Lead Incident Commander');
@@ -79,6 +92,8 @@ function AppContent() {
         <ThreatTicker />
 
         <main className="flex-1 p-4 lg:p-5 max-w-[1680px] w-full mx-auto space-y-5">
+          <SimpleTermGuide />
+
           {viewingDetailIncident ? (
             <IncidentDetailPage
               incident={viewingDetailIncident}
@@ -93,11 +108,12 @@ function AppContent() {
                     <div>
                       <div className="mission-eyebrow">THREATOPS // AUTONOMOUS SOC COMMAND</div>
                       <h1 className="mission-title">Mission Control</h1>
+                      <p className="text-xs text-slate-500 mt-1">See what happened, what matters most, and what the security team should investigate first.</p>
                     </div>
                     <div className="mission-status-cluster">
                       <span><i className="bg-emerald-400" />SCORING ENGINE ONLINE</span>
                       <span><i className="bg-cyan-400" />CORRELATION ACTIVE</span>
-                      <span><i className="bg-violet-400" />AI EXPLAINABILITY READY</span>
+                      <span><i className="bg-violet-400" />AI EXPLANATION READY</span>
                     </div>
                   </div>
 
@@ -114,7 +130,7 @@ function AppContent() {
                   />
 
                   <div className="mission-queue-wrap">
-                    <div className="mission-section-kicker">TACTICAL QUEUE // RANKED INCIDENTS</div>
+                    <div className="mission-section-kicker">RANKED INCIDENTS // WHAT TO INVESTIGATE NEXT</div>
                     <IncidentQueueTable
                       onSelectIncident={setSelectedIncident}
                       onCompareIncidents={handleTriggerCompare}
