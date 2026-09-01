@@ -18,9 +18,14 @@ interface HeaderProps {
 
 type DatabaseStatus = 'syncing' | 'connected' | 'offline';
 
-const escapeCsvValue = (value: unknown) => {
+const escapeHtml = (value: unknown) => {
   const text = value == null ? '' : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 };
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
@@ -56,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     };
   }, []);
 
-  const exportQueueCSV = () => {
+  const exportQueueExcel = () => {
     const headers = [
       'Rank',
       'Incident ID',
@@ -105,15 +110,37 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       new Date(incident.timestamp).toLocaleString(),
     ]);
 
-    const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsvValue).join(','))
-      .join('\r\n');
+    const headerHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+    const bodyHtml = rows
+      .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+      .join('');
 
-    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+    const workbookHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  table { border-collapse: collapse; table-layout: fixed; width: ${headers.length * 150}px; font-family: Arial, sans-serif; font-size: 11pt; }
+  th, td { border: 1px solid #9ca3af; width: 150px; min-width: 150px; max-width: 150px; padding: 8px; vertical-align: middle; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+  th { font-weight: 700; text-align: center; background: #e5e7eb; }
+  td { text-align: left; }
+</style>
+</head>
+<body>
+<table>
+  <thead><tr>${headerHtml}</tr></thead>
+  <tbody>${bodyHtml}</tbody>
+</table>
+</body>
+</html>`;
+
+    const blob = new Blob(['\uFEFF', workbookHtml], {
+      type: 'application/vnd.ms-excel;charset=utf-8;',
+    });
     const url = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
     downloadAnchor.href = url;
-    downloadAnchor.download = `cyber-soc-prioritized-queue-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadAnchor.download = `cyber-soc-prioritized-queue-${new Date().toISOString().slice(0, 10)}.xls`;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -217,13 +244,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         </button>
 
         <button
-          onClick={exportQueueCSV}
+          onClick={exportQueueExcel}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition-colors text-xs font-mono font-semibold"
-          title="Export the current prioritized incident queue as a CSV spreadsheet"
+          title="Export the prioritized queue as an Excel spreadsheet with uniform column widths"
         >
           <Download className="w-4 h-4" />
-          <span className="hidden xl:inline">Export Queue CSV</span>
-          <span className="xl:hidden">CSV</span>
+          <span className="hidden xl:inline">Export Queue Excel</span>
+          <span className="xl:hidden">Excel</span>
         </button>
       </div>
     </header>
