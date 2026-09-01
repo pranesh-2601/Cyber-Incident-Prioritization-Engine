@@ -21,6 +21,7 @@ import { RiskBadge, StatusBadge, AssetTierBadge } from '../common/Badge';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { FactorBreakdownBar } from '../explainability/FactorBreakdownBar';
 import { SOCPlaybookActions } from './SOCPlaybookActions';
+import { IncidentActivityHistory } from './IncidentActivityHistory';
 import { calculateFactorContributions } from '../../utils/scoringEngine';
 import { generateRankingExplanation } from '../../utils/explainability';
 
@@ -40,7 +41,6 @@ export const IncidentDetailPage: React.FC<{
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-      {/* Top Breadcrumb & Action Bar */}
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
@@ -71,7 +71,6 @@ export const IncidentDetailPage: React.FC<{
         </div>
       </div>
 
-      {/* Main Dossier Header Banner */}
       <div className="glass-panel p-6 rounded-xl border border-slate-800 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -105,7 +104,6 @@ export const IncidentDetailPage: React.FC<{
           </div>
         </div>
 
-        {/* Priority Score Display */}
         <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-slate-950 border border-slate-800 shrink-0">
           <ScoreGauge score={incident.priorityScore} size="xl" />
           <div className="text-[11px] font-mono text-cyan-400 mt-2 font-bold uppercase">
@@ -114,7 +112,6 @@ export const IncidentDetailPage: React.FC<{
         </div>
       </div>
 
-      {/* Forensic Entity Attributes */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
         <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
           <span className="text-slate-500 text-[10px] uppercase">Attacker IP (Source)</span>
@@ -134,7 +131,6 @@ export const IncidentDetailPage: React.FC<{
         </div>
       </div>
 
-      {/* 7-Factor Mathematical Attribution */}
       <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
         <div className="flex items-center justify-between pb-2 border-b border-slate-800">
           <div className="flex items-center gap-2">
@@ -155,7 +151,6 @@ export const IncidentDetailPage: React.FC<{
         </div>
       </div>
 
-      {/* Correlated Incidents Timeline / Connected alerts */}
       {correlatedIncidents.length > 0 && (
         <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center gap-2">
@@ -199,7 +194,8 @@ export const IncidentDetailPage: React.FC<{
         </div>
       )}
 
-      {/* Recommended SOC Playbook Actions */}
+      <IncidentActivityHistory incidentId={incident.id} />
+
       <div className="glass-panel p-6 rounded-xl border border-slate-800">
         <SOCPlaybookActions incident={incident} />
       </div>
