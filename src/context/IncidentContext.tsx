@@ -54,6 +54,16 @@ const DEFAULT_FILTERS: QueueFilters = {
 
 const IncidentContext = createContext<IncidentContextType | undefined>(undefined);
 
+const createUniqueIncidentId = (incidents: Incident[]) => {
+  const existingIds = new Set(incidents.map((incident) => incident.id));
+  let id = '';
+  do {
+    const randomPart = Math.floor(100000 + Math.random() * 900000);
+    id = `INC-${Date.now().toString(36).toUpperCase()}-${randomPart}`;
+  } while (existingIds.has(id));
+  return id;
+};
+
 export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [weights, setWeights] = useState<FactorWeights>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_WEIGHTS);
@@ -87,8 +97,6 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [criticalAlertBanner, setCriticalAlertBanner] = useState<string | null>(null);
 
-  // Correlate first, rank with the active weights, then rebuild chains from ranked
-  // incidents so every attack-chain node carries the current priority score.
   const { incidents, attackChains } = useMemo(() => {
     const { correlatedIncidents } = correlateAllIncidents(rawIncidents);
     const ranked = rankIncidents(correlatedIncidents, weights);
@@ -101,24 +109,21 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [rawIncidents, weights]);
 
   useEffect(() => {
-    if (selectedIncident) {
-      const updated = incidents.find((i) => i.id === selectedIncident.id);
-      if (updated) setSelectedIncident(updated);
-    }
+    if (!selectedIncident) return;
+    const updated = incidents.find((i) => i.id === selectedIncident.id) ?? null;
+    if (updated !== selectedIncident) setSelectedIncident(updated);
   }, [incidents, selectedIncident]);
 
   useEffect(() => {
-    if (comparingIncident) {
-      const updated = incidents.find((i) => i.id === comparingIncident.id);
-      if (updated) setComparingIncident(updated);
-    }
+    if (!comparingIncident) return;
+    const updated = incidents.find((i) => i.id === comparingIncident.id) ?? null;
+    if (updated !== comparingIncident) setComparingIncident(updated);
   }, [incidents, comparingIncident]);
 
   useEffect(() => {
-    if (activeChainDetail) {
-      const updated = attackChains.find((chain) => chain.id === activeChainDetail.id);
-      if (updated) setActiveChainDetail(updated);
-    }
+    if (!activeChainDetail) return;
+    const updated = attackChains.find((chain) => chain.id === activeChainDetail.id) ?? null;
+    if (updated !== activeChainDetail) setActiveChainDetail(updated);
   }, [attackChains, activeChainDetail]);
 
   useEffect(() => {
@@ -179,19 +184,19 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addIncident = useCallback(
     (newIncidentData: Omit<Incident, 'id' | 'weightedScore' | 'priorityScore' | 'riskLevel' | 'rank' | 'correlatedIncidentIds'>) => {
-      const id = `INC-${Math.floor(1000 + Math.random() * 9000)}`;
-      const newInc: Incident = {
-        ...newIncidentData,
-        id,
-        weightedScore: 0,
-        priorityScore: 0,
-        riskLevel: 'HIGH',
-        correlatedIncidentIds: [],
-        timestamp: newIncidentData.timestamp || new Date().toISOString(),
-        isNewAlert: true,
-      };
-
-      setRawIncidents((prev) => [newInc, ...prev]);
+      setRawIncidents((prev) => {
+        const newInc: Incident = {
+          ...newIncidentData,
+          id: createUniqueIncidentId(prev),
+          weightedScore: 0,
+          priorityScore: 0,
+          riskLevel: 'HIGH',
+          correlatedIncidentIds: [],
+          timestamp: newIncidentData.timestamp || new Date().toISOString(),
+          isNewAlert: true,
+        };
+        return [newInc, ...prev];
+      });
     },
     []
   );
@@ -199,6 +204,9 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const simulateBatchAlerts = useCallback(() => {
     const generated = generateBatchAlerts();
     setRawIncidents(generated);
+    setSelectedIncident(null);
+    setComparingIncident(null);
+    setActiveChainDetail(null);
     setCriticalAlertBanner('SIMULATION TRIGGERED: 25+ correlated security alerts ingested & ranked across enterprise assets.');
   }, []);
 
@@ -210,7 +218,7 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return {
           ...inc,
           status,
-          mitigatedAt: status === 'MITIGATED' ? new Date().toISOString() : inc.mitigatedAt,
+          mitigatedAt: status === 'MITIGATED' ? new Date().toISOString() : undefined,
           notes: notes ? [...currentNotes, notes] : currentNotes,
         };
       })
@@ -218,8 +226,14 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const batchUpdateStatus = useCallback((ids: string[], status: IncidentStatus) => {
+    const idSet = new Set(ids);
+    const mitigatedAt = status === 'MITIGATED' ? new Date().toISOString() : undefined;
     setRawIncidents((prev) =>
-      prev.map((inc) => (ids.includes(inc.id) ? { ...inc, status } : inc))
+      prev.map((inc) =>
+        idSet.has(inc.id)
+          ? { ...inc, status, mitigatedAt: status === 'MITIGATED' ? mitigatedAt : undefined }
+          : inc
+      )
     );
   }, []);
 
@@ -244,6 +258,8 @@ export const IncidentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setComparingIncident(null);
     setActiveChainDetail(null);
     setFilters(DEFAULT_FILTERS);
+    setCriticalAlertBanner(null);
+    setIsLiveMode(false);
   }, []);
 
   const exportDataJSON = useCallback(() => {
