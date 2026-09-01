@@ -1,0 +1,216 @@
+/* Typography polish: keep dense SOC information readable without losing the command-center feel. */
+
+html {
+  font-size: 16px;
+  text-rendering: optimizeLegibility;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: -0.006em;
+}
+
+h1,
+h2,
+h3,
+h4,
+.mission-title {
+  font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.font-mono,
+.mission-eyebrow,
+.mission-status-cluster span,
+.mission-panel-heading,
+.mission-rank,
+.mission-radar-meta span,
+.mission-radar-meta strong,
+.mission-priority-chip,
+.mission-chain-chip,
+.mission-primary-grid span,
+.mission-primary-grid strong,
+.mission-investigate-btn,
+.mission-mini-rank,
+.mission-ai-action,
+.mission-stage-chip,
+.mission-section-kicker {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: 0;
+}
+
+/* Mission-control labels were previously 7–9px and looked compressed on laptops. */
+.mission-eyebrow {
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: .16em;
+}
+
+.mission-title {
+  font-size: 26px;
+  line-height: 1.08;
+  font-weight: 700;
+}
+
+.mission-status-cluster span {
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: .025em;
+}
+
+.mission-panel-heading {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: .075em;
+  min-height: 34px;
+}
+
+.mission-link,
+.mission-live-pill {
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.mission-radar-meta span {
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.mission-radar-meta strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mission-rank {
+  font-size: 11px;
+}
+
+.mission-priority-chip,
+.mission-chain-chip {
+  font-size: 9px;
+  line-height: 1.35;
+  padding: 4px 7px;
+}
+
+.mission-primary-grid span {
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.mission-primary-grid strong {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.mission-investigate-btn,
+.mission-ai-action {
+  font-size: 10px;
+  line-height: 1.3;
+  min-height: 38px;
+}
+
+.mission-mini-rank {
+  font-size: 10px;
+}
+
+.mission-stage-chip {
+  font-size: 8px;
+  line-height: 1.35;
+  padding: 3px 5px;
+}
+
+.mission-section-kicker {
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: .11em;
+  margin-bottom: 9px;
+}
+
+/* Improve readability of the smallest Tailwind utility text used across the dashboard. */
+.mission-shell .text-\[9px\] {
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+}
+
+.mission-shell .text-\[10px\] {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+
+.mission-shell .text-\[11px\] {
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.mission-shell .text-xs {
+  line-height: 1.5;
+}
+
+/* Queue is data-dense, so keep columns compact but never visually crushed. */
+.mission-shell table th {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: .055em;
+  white-space: nowrap;
+}
+
+.mission-shell table td {
+  line-height: 1.45;
+  vertical-align: middle;
+}
+
+.mission-shell button,
+.mission-shell a {
+  line-height: 1.35;
+}
+
+.mission-shell p {
+  line-height: 1.55;
+}
+
+/* Give cards enough breathing room so larger type does not collide. */
+.mission-threat-row,
+.mission-chain-row,
+.mission-mini-card {
+  min-height: 46px;
+}
+
+.mission-primary-grid div {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+@media (max-width: 1280px) {
+  .mission-title {
+    font-size: 24px;
+  }
+
+  .mission-panel-heading {
+    letter-spacing: .055em;
+  }
+}
+
+@media (max-width: 900px) {
+  .mission-shell .text-\[11px\] {
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .mission-title {
+    font-size: 22px;
+  }
+
+  .mission-eyebrow {
+    letter-spacing: .1em;
+  }
+}
