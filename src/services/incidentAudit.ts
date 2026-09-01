@@ -9,7 +9,7 @@ const headers = {
 export type IncidentAuditEntry = {
   id: number;
   incident_id: string | null;
-  action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'DELETED';
+  action: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'DELETED' | 'PLAYBOOK_EXECUTED';
   previous_status: string | null;
   new_status: string | null;
   changed_fields: Record<string, unknown>;
@@ -28,4 +28,36 @@ export async function loadIncidentAuditHistory(incidentId: string): Promise<Inci
   }
 
   return (await response.json()) as IncidentAuditEntry[];
+}
+
+export async function recordPlaybookAuditEvent(
+  incidentId: string,
+  playbookId: string,
+  playbookName: string,
+  resultMessage: string
+): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/incident_audit_log`, {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      incident_id: incidentId,
+      action: 'PLAYBOOK_EXECUTED',
+      previous_status: null,
+      new_status: null,
+      changed_fields: {
+        playbook_id: playbookId,
+        playbook_name: playbookName,
+        result: resultMessage,
+      },
+      actor_id: null,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Playbook audit event save failed (${response.status})`);
+  }
 }
