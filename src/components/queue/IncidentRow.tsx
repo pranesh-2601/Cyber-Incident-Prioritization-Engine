@@ -7,7 +7,8 @@ import {
   GitCompare,
   CheckCircle2,
   BrainCircuit,
-  FileText
+  FileText,
+  ArrowUpRight
 } from 'lucide-react';
 import { Incident } from '../../types/incident';
 import { RiskBadge, StatusBadge, AssetTierBadge } from '../common/Badge';
@@ -157,6 +158,17 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
           <Clock className="w-3 h-3 text-slate-500" />
           <span>{formattedTime}</span>
         </div>
+      </td>
+
+      <td className="py-3 px-3">
+        {incident.status === 'ESCALATED' ? (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-950/70 text-purple-300 border border-purple-500/40 text-[10px] font-mono font-bold whitespace-nowrap">
+            <ArrowUpRight className="w-3 h-3" />
+            Escalated to CIRT
+          </span>
+        ) : (
+          <span className="text-[11px] font-mono text-slate-600">—</span>
+        )}
       </td>
 
       <td className="py-3 px-3"><StatusBadge status={incident.status} /></td>
