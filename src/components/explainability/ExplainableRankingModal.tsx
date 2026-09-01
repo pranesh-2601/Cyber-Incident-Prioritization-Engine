@@ -2,21 +2,16 @@ import React from 'react';
 import { 
   Sparkles, 
   BrainCircuit, 
-  ShieldAlert, 
   CheckCircle2, 
   Network, 
-  Layers, 
-  ExternalLink, 
-  ArrowUpRight, 
-  Flame, 
-  Lock,
+  Layers,
   GitCompare
 } from 'lucide-react';
 import { Incident } from '../../types/incident';
 import { useIncidents } from '../../context/IncidentContext';
 import { generateRankingExplanation } from '../../utils/explainability';
 import { Modal } from '../common/Modal';
-import { RiskBadge, StatusBadge, AssetTierBadge } from '../common/Badge';
+import { RiskBadge } from '../common/Badge';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { FactorBreakdownBar } from './FactorBreakdownBar';
 
@@ -25,11 +20,11 @@ export const ExplainableRankingModal: React.FC<{
   onClose: () => void;
   onCompareWithNext?: (current: Incident) => void;
 }> = ({ incident, onClose, onCompareWithNext }) => {
-  const { incidents, updateIncidentStatus } = useIncidents();
+  const { incidents, weights, updateIncidentStatus } = useIncidents();
 
   if (!incident) return null;
 
-  const explanation = generateRankingExplanation(incident, incidents);
+  const explanation = generateRankingExplanation(incident, incidents, weights);
 
   return (
     <Modal
@@ -49,7 +44,6 @@ export const ExplainableRankingModal: React.FC<{
       subtitle={`Comprehensive 7-Factor Mathematical Attribution for ${incident.type} on ${incident.asset}`}
     >
       <div className="space-y-6">
-        {/* Top Summary Banner */}
         <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-cyan-950/20 to-slate-900 border border-cyan-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <ScoreGauge score={incident.priorityScore} size="lg" />
@@ -77,9 +71,7 @@ export const ExplainableRankingModal: React.FC<{
           )}
         </div>
 
-        {/* Why this incident ranks here: Key Drivers & Correlation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Key Drivers */}
           <div className="glass-panel p-4 rounded-xl border border-slate-800 space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 font-bold uppercase tracking-wider">
               <Sparkles className="w-4 h-4" />
@@ -101,7 +93,6 @@ export const ExplainableRankingModal: React.FC<{
             )}
           </div>
 
-          {/* Correlation Story */}
           <div className="glass-panel p-4 rounded-xl border border-slate-800 space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-mono text-purple-400 font-bold uppercase tracking-wider">
               <Network className="w-4 h-4" />
@@ -120,13 +111,12 @@ export const ExplainableRankingModal: React.FC<{
           </div>
         </div>
 
-        {/* 7-Factor Mathematical Contribution Breakdown */}
         <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-cyan-400" />
               <h4 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
-                7-Factor Weighted Attribution Breakdown (Formula: Sum of (Factor × Weight) × 10)
+                7-Factor Weighted Attribution Breakdown (Formula: Sum of Factor × Normalized Weight × 10)
               </h4>
             </div>
             <span className="text-xs font-mono text-cyan-400 font-bold">
@@ -141,7 +131,6 @@ export const ExplainableRankingModal: React.FC<{
           </div>
         </div>
 
-        {/* Forensic Metadata & Playbook Actions */}
         <div className="glass-panel p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-xs font-mono text-slate-400 uppercase">Recommended Urgency Level</div>
