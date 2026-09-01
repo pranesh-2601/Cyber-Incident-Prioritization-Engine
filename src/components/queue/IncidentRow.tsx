@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   Network,
-  ChevronRight,
   Clock,
   User,
   Server,
   GitCompare,
   CheckCircle2,
-  BrainCircuit
+  BrainCircuit,
+  FileText
 } from 'lucide-react';
 import { Incident } from '../../types/incident';
 import { RiskBadge, StatusBadge, AssetTierBadge } from '../common/Badge';
@@ -162,7 +162,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
       <td className="py-3 px-3"><StatusBadge status={incident.status} /></td>
 
       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1.5 flex-wrap min-w-[210px]">
           {previousIncident && onCompareWithPrevious && (
             <button
               onClick={() => onCompareWithPrevious(previousIncident, incident)}
@@ -185,18 +185,20 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
 
           <button
             onClick={() => onExplainRank(incident)}
-            className="p-1.5 rounded-lg bg-slate-900 hover:bg-violet-950 text-slate-400 hover:text-violet-300 border border-slate-800 hover:border-violet-700/50 transition-colors"
-            title="Why is this incident ranked here?"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-violet-950/50 hover:bg-violet-950 text-violet-300 border border-violet-800/60 hover:border-violet-600 transition-colors text-[10px] font-mono font-semibold whitespace-nowrap"
+            title="Open the score and ranking explanation"
           >
             <BrainCircuit className="w-3.5 h-3.5" />
+            Why Ranked?
           </button>
 
           <button
             onClick={() => onOpenDetail(incident)}
-            className="p-1.5 rounded-lg bg-slate-900 hover:bg-cyan-950 text-slate-400 hover:text-cyan-400 border border-slate-800 hover:border-cyan-700/50 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-950 text-cyan-300 border border-cyan-800/60 hover:border-cyan-600 transition-colors text-[10px] font-mono font-semibold whitespace-nowrap"
             title="Open full incident details and activity history"
           >
-            <ChevronRight className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5" />
+            View Details
           </button>
         </div>
       </td>
