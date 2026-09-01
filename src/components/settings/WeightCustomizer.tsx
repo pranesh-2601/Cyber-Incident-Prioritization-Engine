@@ -1,14 +1,5 @@
 import React from 'react';
-import { 
-  Sliders, 
-  RotateCcw, 
-  Sparkles, 
-  ShieldCheck, 
-  HelpCircle, 
-  Layers,
-  ArrowRight,
-  Scale
-} from 'lucide-react';
+import { Sliders, RotateCcw, ArrowRight, Scale } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
 import { DEFAULT_WEIGHTS, FACTOR_LABELS } from '../../utils/scoringEngine';
 import { FactorWeights } from '../../types/incident';
@@ -16,7 +7,7 @@ import { FactorWeights } from '../../types/incident';
 export const WeightCustomizer: React.FC<{
   onNavigateToQueue: () => void;
 }> = ({ onNavigateToQueue }) => {
-  const { weights, updateWeights, resetWeights, incidents } = useIncidents();
+  const { weights, updateWeights, resetWeights } = useIncidents();
 
   const handleSliderChange = (key: keyof FactorWeights, percentValue: number) => {
     updateWeights({ [key]: percentValue / 100 });
@@ -38,7 +29,6 @@ export const WeightCustomizer: React.FC<{
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Overview Card */}
       <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -84,12 +74,11 @@ export const WeightCustomizer: React.FC<{
             </span>
           </div>
           <span className="text-slate-500">
-            Formula: Score = Sum of (Factor × Weight) × 10
+            Formula: Score = Σ(Factor × Normalized Weight) × 10
           </span>
         </div>
       </div>
 
-      {/* 7 Weights Sliders */}
       <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
         <h3 className="text-xs font-bold font-mono text-cyan-400 uppercase tracking-wider">
           Individual Factor Calibrations (Official Hackathon Spec)
@@ -137,7 +126,6 @@ export const WeightCustomizer: React.FC<{
         </div>
       </div>
 
-      {/* Tie-Breaking Policy Card */}
       <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
         <div className="flex items-center gap-2">
           <Scale className="w-4 h-4 text-cyan-400" />
