@@ -5,19 +5,45 @@ import { Incident, AttackChain } from '../../types/incident';
 import { RiskBadge } from '../common/Badge';
 import { ScoreGauge } from '../common/ScoreGauge';
 
+const factorLabel: Record<keyof Incident['factors'], string> = {
+  severity: 'Severity',
+  businessImpact: 'Business Impact',
+  assetImportance: 'Asset Importance',
+  dataSensitivity: 'Data Sensitivity',
+  attackConfidence: 'Attack Confidence',
+  affectedUsers: 'Affected Users',
+  correlationScore: 'Correlation Strength',
+};
+
 export const MissionControlDeck: React.FC<{
   onSelectIncident: (incident: Incident) => void;
   onSelectChain: (chain: AttackChain) => void;
   onNavigateToQueue: () => void;
   onNavigateToChains: () => void;
 }> = ({ onSelectIncident, onSelectChain, onNavigateToQueue, onNavigateToChains }) => {
-  const { incidents, attackChains, metrics } = useIncidents();
+  const { incidents, attackChains, metrics, weights } = useIncidents();
   const top = incidents[0];
   const next = incidents[1];
   const hotThreats = incidents.slice(0, 4);
   const chains = attackChains.slice(0, 3);
 
   const delta = top && next ? Math.max(0, Math.round((top.priorityScore - next.priorityScore) * 10) / 10) : 0;
+
+  const strongestReasons = top
+    ? (Object.keys(top.factors) as (keyof Incident['factors'])[])
+        .map((key) => ({
+          key,
+          label: factorLabel[key],
+          value: top.factors[key],
+          contribution: top.factors[key] * weights[key],
+        }))
+        .sort((a, b) => b.contribution - a.contribution)
+        .slice(0, 3)
+    : [];
+
+  const plainLanguageReason = top && next
+    ? `${top.type} is ranked first because it creates more overall risk than ${next.type}. Its final priority score is ${top.priorityScore}, which is ${delta} points higher than #2. The biggest reasons are ${strongestReasons.map((r) => `${r.label.toLowerCase()} (${r.value}/10)`).join(', ')}.`
+    : 'Waiting for at least two incidents so the system can explain the ranking in plain language.';
 
   return (
     <div className="mission-grid">
@@ -124,37 +150,51 @@ export const MissionControlDeck: React.FC<{
 
       <section className="mission-panel mission-panel-right">
         <div className="mission-panel-heading">
-          <div className="flex items-center gap-2"><Bot className="w-4 h-4 text-violet-300" /><span>AI Command Insight</span></div>
-          <span className="text-[9px] font-mono text-violet-300">AUTONOMOUS</span>
+          <div className="flex items-center gap-2"><Bot className="w-4 h-4 text-violet-300" /><span>AI Ranking Explanation</span></div>
+          <span className="text-[9px] font-mono text-violet-300">PLAIN LANGUAGE</span>
         </div>
 
         <div className="mission-ai-card">
           <div className="mission-ai-icon"><Sparkles className="w-5 h-5" /></div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-violet-300">Why #1 outranks #2</div>
-            <p className="text-xs leading-relaxed text-slate-300 mt-2">
-              {top && next ? `${top.type} leads by ${delta} points, driven by its weighted severity, asset criticality, business impact and correlation context.` : 'Waiting for enough incidents to produce a ranked explanation.'}
-            </p>
+            <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-violet-300">Why is this incident #1?</div>
+            <p className="text-xs leading-relaxed text-slate-300 mt-2">{plainLanguageReason}</p>
           </div>
         </div>
 
+        {top && next && (
+          <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/55 p-3">
+            <div className="text-[10px] font-mono text-slate-500 uppercase mb-2">Simple comparison</div>
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+              <div>
+                <div className="text-[10px] text-cyan-300 font-mono">#1 {top.type}</div>
+                <div className="text-xl font-black text-white font-mono">{top.priorityScore}</div>
+              </div>
+              <div className="text-xs font-black text-emerald-300">+{delta}</div>
+              <div className="text-right">
+                <div className="text-[10px] text-slate-500 font-mono">#2 {next.type}</div>
+                <div className="text-xl font-black text-slate-300 font-mono">{next.priorityScore}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {top && (
           <div className="space-y-2.5 mt-4">
-            {[
-              ['Severity', top.factors.severity],
-              ['Business Impact', top.factors.businessImpact],
-              ['Asset Importance', top.factors.assetImportance],
-              ['Correlation', top.factors.correlationScore],
-            ].map(([label, value]) => (
-              <div key={label as string}>
-                <div className="flex items-center justify-between text-[10px] font-mono mb-1.5"><span className="text-slate-500">{label}</span><span className="text-slate-200">{value}/10</span></div>
-                <div className="mission-meter"><span style={{ width: `${Number(value) * 10}%` }} /></div>
+            <div className="text-[10px] font-mono uppercase text-slate-500">Top 3 reasons</div>
+            {strongestReasons.map((reason, index) => (
+              <div key={reason.key} className="rounded-lg border border-slate-800 bg-slate-950/45 px-3 py-2.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-300"><strong className="text-violet-300 mr-1">{index + 1}.</strong>{reason.label}</span>
+                  <span className="font-mono font-bold text-white">{reason.value}/10</span>
+                </div>
+                <div className="mission-meter mt-2"><span style={{ width: `${reason.value * 10}%` }} /></div>
               </div>
             ))}
           </div>
         )}
 
-        <button onClick={() => top && onSelectIncident(top)} className="mission-ai-action" disabled={!top}>EXPLAIN DECISION</button>
+        <button onClick={() => top && onSelectIncident(top)} className="mission-ai-action" disabled={!top}>SEE FULL SCORE BREAKDOWN</button>
       </section>
 
       <section className="mission-panel mission-chain-panel">
