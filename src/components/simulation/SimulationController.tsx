@@ -1,29 +1,23 @@
 import React from 'react';
-import { 
-  Play, 
-  Pause, 
-  Flame, 
-  RotateCcw, 
-  Sparkles, 
-  Activity, 
-  ShieldAlert, 
-  Network, 
+import {
+  Play,
+  Pause,
+  Flame,
+  Activity,
   Zap,
-  Terminal,
-  Layers
+  Database,
 } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
 
 export const SimulationController: React.FC<{
   onNavigateToQueue: () => void;
 }> = ({ onNavigateToQueue }) => {
-  const { 
-    isLiveMode, 
-    setIsLiveMode, 
-    simulateBatchAlerts, 
-    resetAllData, 
+  const {
+    isLiveMode,
+    setIsLiveMode,
+    simulateBatchAlerts,
     incidents,
-    metrics 
+    metrics,
   } = useIncidents();
 
   const scenarios = [
@@ -32,51 +26,45 @@ export const SimulationController: React.FC<{
       desc: 'Generates a realistic enterprise shift alert pool with correlated IP clusters, Active Directory takeovers, and noise filters.',
       tag: 'RECOMMENDED',
       tagColor: 'bg-cyan-950 text-cyan-400 border-cyan-500/40',
-      action: () => {
-        simulateBatchAlerts();
-        onNavigateToQueue();
-      },
     },
     {
       title: 'APT29 State-Sponsored Cyber Espionage',
-      desc: 'Orchestrates a 5-stage sequential kill chain: Spearphishing → AMSI PowerShell Bypass → Token Impersonation → Finance DB Exfiltration.',
+      desc: 'Injects a multi-stage sequence including spearphishing, suspicious PowerShell, privilege activity, and data exfiltration signals.',
       tag: 'APT CAMPAIGN',
       tagColor: 'bg-red-950 text-red-400 border-red-500/40',
-      action: () => {
-        simulateBatchAlerts();
-        onNavigateToQueue();
-      },
     },
     {
-      title: 'BlackCat / ALPHV Ransomware Rapid Encryption',
-      desc: 'Simulates fast-moving double extortion ransomware targeting critical healthcare EHR SAN storage arrays.',
+      title: 'Ransomware Rapid Encryption Scenario',
+      desc: 'Injects a fast-moving ransomware-style alert set so the prioritization engine can rank critical systems and correlated activity.',
       tag: 'RANSOMWARE',
       tagColor: 'bg-purple-950 text-purple-400 border-purple-500/40',
-      action: () => {
-        simulateBatchAlerts();
-        onNavigateToQueue();
-      },
     },
   ];
 
+  const injectScenario = () => {
+    simulateBatchAlerts();
+    onNavigateToQueue();
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Live Stream Mode Card */}
-      <div className={`glass-panel p-6 rounded-xl border transition-all ${
-        isLiveMode
-          ? 'border-red-500/60 bg-gradient-to-r from-red-950/30 via-slate-900 to-red-950/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
-          : 'border-slate-800'
-      }`}>
+      <div
+        className={`glass-panel p-6 rounded-xl border transition-all ${
+          isLiveMode
+            ? 'border-red-500/60 bg-gradient-to-r from-red-950/30 via-slate-900 to-red-950/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+            : 'border-slate-800'
+        }`}
+      >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={`w-3 h-3 rounded-full ${isLiveMode ? 'bg-red-500 animate-ping' : 'bg-slate-600'}`} />
               <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
-                Real-Time SOC Live Streaming Ingestion
+                Real-Time SOC Alert Ingestion
               </h2>
             </div>
             <p className="text-xs text-slate-300 font-sans max-w-xl">
-              Streams realistic high-velocity security events every 6 seconds. When a correlated intrusion appears, the engine triggers a <span className="text-red-400 font-mono font-bold">"CRITICAL ATTACK CHAIN DETECTED"</span> alert and dynamically re-ranks the queue in real-time.
+              Generates realistic security events every 6 seconds. Each new alert is scored, correlated, and inserted into the shared priority queue so the ranking can change in real time.
             </p>
           </div>
 
@@ -108,12 +96,11 @@ export const SimulationController: React.FC<{
               <Activity className="w-4 h-4 text-red-400 animate-spin" />
               <span>Streaming Event Rate: {metrics.eventsPerSecond} EPS • Auto Re-ranking Active</span>
             </div>
-            <span className="text-slate-400">Total Alerts in Memory: {incidents.length}</span>
+            <span className="text-slate-400">Total Shared Alerts: {incidents.length}</span>
           </div>
         )}
       </div>
 
-      {/* Preset Scenarios Grid */}
       <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
@@ -123,30 +110,30 @@ export const SimulationController: React.FC<{
             </h3>
           </div>
           <span className="text-[11px] font-mono text-slate-400">
-            Simulate 100+ shift alerts in 1 click
+            Test how mixed alerts are prioritized
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {scenarios.map((sc, i) => (
+          {scenarios.map((scenario) => (
             <div
-              key={i}
+              key={scenario.title}
               className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 flex flex-col justify-between space-y-3 group"
             >
               <div>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border inline-block mb-2 font-bold ${sc.tagColor}`}>
-                  {sc.tag}
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border inline-block mb-2 font-bold ${scenario.tagColor}`}>
+                  {scenario.tag}
                 </span>
                 <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  {sc.title}
+                  {scenario.title}
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 font-sans leading-snug">
-                  {sc.desc}
+                  {scenario.desc}
                 </p>
               </div>
 
               <button
-                onClick={sc.action}
+                onClick={injectScenario}
                 className="w-full py-2 rounded-lg bg-slate-800 hover:bg-cyan-950 text-slate-200 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5"
               >
                 <Zap className="w-3.5 h-3.5 text-cyan-400" />
@@ -157,20 +144,14 @@ export const SimulationController: React.FC<{
         </div>
       </div>
 
-      {/* Reset System State */}
-      <div className="glass-panel p-5 rounded-xl border border-slate-800 flex items-center justify-between text-xs font-mono">
+      <div className="glass-panel p-5 rounded-xl border border-slate-800 flex items-start gap-3 text-xs">
+        <Database className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
         <div>
-          <div className="text-white font-bold">Reset Environment to Factory SOC Defaults</div>
-          <div className="text-slate-500 text-[11px]">Clears memory and restores standard clean sample incidents</div>
+          <div className="text-white font-bold font-mono">Shared demo data is persistent</div>
+          <div className="text-slate-500 text-[11px] mt-1 leading-relaxed">
+            There is no destructive “Reset All Data” button in shared mode. Incidents are stored in Supabase and synchronized across browsers, so one analyst cannot accidentally wipe the team queue during a demo.
+          </div>
         </div>
-
-        <button
-          onClick={resetAllData}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-300 border border-slate-800 hover:border-red-900/50 transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset All Data</span>
-        </button>
       </div>
     </div>
   );
