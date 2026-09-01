@@ -8,6 +8,7 @@ import {
   Database,
 } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
+import { generateBatchAlerts, INITIAL_MOCK_INCIDENTS } from '../../utils/mockData';
 
 export const SimulationController: React.FC<{
   onNavigateToQueue: () => void;
@@ -15,34 +16,33 @@ export const SimulationController: React.FC<{
   const {
     isLiveMode,
     setIsLiveMode,
-    simulateBatchAlerts,
+    addIncident,
     incidents,
     metrics,
   } = useIncidents();
 
-  const scenarios = [
-    {
-      title: 'Enterprise Shift Simulation (25+ Multi-Vector Alerts)',
-      desc: 'Generates a realistic enterprise shift alert pool with correlated IP clusters, Active Directory takeovers, and noise filters.',
-      tag: 'RECOMMENDED',
-      tagColor: 'bg-cyan-950 text-cyan-400 border-cyan-500/40',
-    },
-    {
-      title: 'APT29 State-Sponsored Cyber Espionage',
-      desc: 'Injects a multi-stage sequence including spearphishing, suspicious PowerShell, privilege activity, and data exfiltration signals.',
-      tag: 'APT CAMPAIGN',
-      tagColor: 'bg-red-950 text-red-400 border-red-500/40',
-    },
-    {
-      title: 'Ransomware Rapid Encryption Scenario',
-      desc: 'Injects a fast-moving ransomware-style alert set so the prioritization engine can rank critical systems and correlated activity.',
-      tag: 'RANSOMWARE',
-      tagColor: 'bg-purple-950 text-purple-400 border-purple-500/40',
-    },
-  ];
-
   const injectScenario = () => {
-    simulateBatchAlerts();
+    const initialIds = new Set(INITIAL_MOCK_INCIDENTS.map((incident) => incident.id));
+    const freshTemplates = generateBatchAlerts().filter((incident) => !initialIds.has(incident.id));
+
+    freshTemplates.forEach((incident, index) => {
+      const {
+        id: _id,
+        weightedScore: _weightedScore,
+        priorityScore: _priorityScore,
+        riskLevel: _riskLevel,
+        rank: _rank,
+        correlatedIncidentIds: _correlatedIncidentIds,
+        ...incidentData
+      } = incident;
+
+      addIncident({
+        ...incidentData,
+        timestamp: new Date(Date.now() - index * 1000).toISOString(),
+        isNewAlert: true,
+      });
+    });
+
     onNavigateToQueue();
   };
 
@@ -106,41 +106,36 @@ export const SimulationController: React.FC<{
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-cyan-400" />
             <h3 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
-              Batch Alert Ingestion Scenarios
+              Batch Alert Simulation
             </h3>
           </div>
           <span className="text-[11px] font-mono text-slate-400">
-            Test how mixed alerts are prioritized
+            Test how a fresh mixed batch is prioritized
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {scenarios.map((scenario) => (
-            <div
-              key={scenario.title}
-              className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 flex flex-col justify-between space-y-3 group"
-            >
-              <div>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border inline-block mb-2 font-bold ${scenario.tagColor}`}>
-                  {scenario.tag}
-                </span>
-                <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  {scenario.title}
-                </h4>
-                <p className="text-[11px] text-slate-400 mt-1 font-sans leading-snug">
-                  {scenario.desc}
-                </p>
-              </div>
-
-              <button
-                onClick={injectScenario}
-                className="w-full py-2 rounded-lg bg-slate-800 hover:bg-cyan-950 text-slate-200 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5"
-              >
-                <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Inject Scenario</span>
-              </button>
+        <div className="max-w-2xl">
+          <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 space-y-4 group">
+            <div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded border inline-block mb-2 font-bold bg-cyan-950 text-cyan-400 border-cyan-500/40">
+                FRESH BATCH
+              </span>
+              <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                Enterprise Multi-Vector Alert Simulation
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-1 font-sans leading-relaxed">
+                Injects 18 brand-new mixed security alerts with fresh incident IDs. Existing incidents are not duplicated, so Supabase realtime refresh will not make rows suddenly disappear or change because of ID collisions.
+              </p>
             </div>
-          ))}
+
+            <button
+              onClick={injectScenario}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-slate-200 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5"
+            >
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Inject 18 Fresh Alerts</span>
+            </button>
+          </div>
         </div>
       </div>
 
