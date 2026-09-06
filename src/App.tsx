@@ -48,6 +48,14 @@ function AppContent() {
   const { selectedIncident, setSelectedIncident, comparingIncident, setComparingIncident, incidents } = useIncidents();
   const [secondaryCompareIncident, setSecondaryCompareIncident] = useState<Incident | null>(null);
 
+  // Keep the detail view connected to the latest incident object from context.
+  // Without this, the detail page holds the old object that was clicked in the queue,
+  // so status changes (for example Mark Mitigated / Re-Open) update the store but
+  // the open detail page keeps rendering stale status data.
+  const liveViewingDetailIncident = viewingDetailIncident
+    ? incidents.find((incident) => incident.id === viewingDetailIncident.id) ?? viewingDetailIncident
+    : null;
+
   const handleLogin = (persona?: string) => {
     if (persona) setUserPersona(persona);
     setIsAuthenticated(true);
@@ -100,9 +108,9 @@ function AppContent() {
         <main className="flex-1 p-4 lg:p-5 max-w-[1680px] w-full mx-auto space-y-5">
           <SimpleTermGuide />
 
-          {viewingDetailIncident ? (
+          {liveViewingDetailIncident ? (
             <IncidentDetailPage
-              incident={viewingDetailIncident}
+              incident={liveViewingDetailIncident}
               onBack={() => setViewingDetailIncident(null)}
               onSelectCorrelated={(corr) => setViewingDetailIncident(corr)}
             />
