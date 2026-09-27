@@ -8,6 +8,7 @@ const actionLabel: Record<IncidentAuditEntry['action'], string> = {
   STATUS_CHANGED: 'Status changed',
   DELETED: 'Incident deleted',
   PLAYBOOK_EXECUTED: 'SOC playbook executed',
+  AI_THREAT_ANALYSIS: 'AI Threat Analysis',
 };
 
 const describeEntry = (entry: IncidentAuditEntry) => {
