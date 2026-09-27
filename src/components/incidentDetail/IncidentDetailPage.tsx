@@ -19,7 +19,7 @@ import {
   analyzeIncident,
   AIAnalysisResult
 } from '../../services/groqService';
-
+import { recordAIThreatAnalysis } from '../../services/incidentAudit';
 export const IncidentDetailPage: React.FC<{
   incident: Incident;
   onBack: () => void;
