@@ -42,7 +42,7 @@ export const FACTOR_LABELS: Record<keyof ScoringFactors, { name: string; descrip
 };
 
 export function getWeightSum(weights: FactorWeights = DEFAULT_WEIGHTS): number {
-  return Object.values(weights).reduce((a, b) => a + b, 0) || 1.0;
+  return Object.values(weights).reduce((a, b) => a + b, 0);
 }
 
 /**
@@ -53,16 +53,18 @@ export function calculateWeightedScore(
   factors: ScoringFactors,
   weights: FactorWeights = DEFAULT_WEIGHTS
 ): number {
-  const sumWeights = getWeightSum(weights);
+  const configuredWeightSum = getWeightSum(weights);
+  const effectiveWeights = configuredWeightSum > 0 ? weights : DEFAULT_WEIGHTS;
+  const sumWeights = getWeightSum(effectiveWeights);
 
   const rawWeighted = (
-    factors.severity * weights.severity +
-    factors.businessImpact * weights.businessImpact +
-    factors.assetImportance * weights.assetImportance +
-    factors.dataSensitivity * weights.dataSensitivity +
-    factors.attackConfidence * weights.attackConfidence +
-    factors.affectedUsers * weights.affectedUsers +
-    factors.correlationScore * weights.correlationScore
+    factors.severity * effectiveWeights.severity +
+    factors.businessImpact * effectiveWeights.businessImpact +
+    factors.assetImportance * effectiveWeights.assetImportance +
+    factors.dataSensitivity * effectiveWeights.dataSensitivity +
+    factors.attackConfidence * effectiveWeights.attackConfidence +
+    factors.affectedUsers * effectiveWeights.affectedUsers +
+    factors.correlationScore * effectiveWeights.correlationScore
   ) / sumWeights;
 
   return Math.min(10.0, Math.max(1.0, rawWeighted));
@@ -99,7 +101,9 @@ export function calculateFactorContributions(
   weights: FactorWeights = DEFAULT_WEIGHTS
 ): FactorContribution[] {
   const finalScore = calculatePriorityScore(factors, weights);
-  const sumWeights = getWeightSum(weights);
+  const configuredWeightSum = getWeightSum(weights);
+  const effectiveWeights = configuredWeightSum > 0 ? weights : DEFAULT_WEIGHTS;
+  const sumWeights = getWeightSum(effectiveWeights);
   const keys: (keyof ScoringFactors)[] = [
     'severity',
     'businessImpact',
@@ -112,7 +116,7 @@ export function calculateFactorContributions(
 
   return keys.map((key) => {
     const val = factors[key];
-    const weight = weights[key];
+    const weight = effectiveWeights[key];
     const normalizedWeight = weight / sumWeights;
     const contribution = Math.round(val * normalizedWeight * 10 * 10) / 10;
     const percentage = finalScore > 0 ? Math.round((contribution / finalScore) * 100) : 0;
