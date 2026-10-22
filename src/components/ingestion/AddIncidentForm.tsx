@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Network, PlusCircle, Sparkles } from 'lucide-react';
 import { useIncidents } from '../../context/IncidentContext';
 import { AttackCategory, Incident, ScoringFactors } from '../../types/incident';
-import { FACTOR_LABELS, getRiskLevel, rankIncidents } from '../../utils/scoringEngine';
+import { DEFAULT_WEIGHTS, FACTOR_LABELS, getRiskLevel, rankIncidents } from '../../utils/scoringEngine';
 import { areIncidentsCorrelated, correlateAllIncidents } from '../../utils/correlationEngine';
 import { ScoreGauge } from '../common/ScoreGauge';
 import { RiskBadge } from '../common/Badge';
@@ -76,7 +76,9 @@ export const AddIncidentForm: React.FC<{
   const projectedRank = previewResult?.rank ?? incidents.length + 1;
   const dynamicCorrelationScore = previewResult?.factors.correlationScore ?? factors.correlationScore;
 
-  const weightSum = Object.values(weights).reduce((sum, value) => sum + value, 0) || 1;
+  const configuredWeightSum = Object.values(weights).reduce((sum, value) => sum + value, 0);
+  const effectiveWeights = configuredWeightSum > 0 ? weights : DEFAULT_WEIGHTS;
+  const weightSum = Object.values(effectiveWeights).reduce((sum, value) => sum + value, 0);
   const factorKeys: (keyof ScoringFactors)[] = [
     'severity',
     'businessImpact',
@@ -235,7 +237,7 @@ export const AddIncidentForm: React.FC<{
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {factorKeys.map((key) => {
-                const normalizedWeight = Math.round((weights[key] / weightSum) * 100);
+                const normalizedWeight = Math.round((effectiveWeights[key] / weightSum) * 100);
                 const shownValue = key === 'correlationScore' ? dynamicCorrelationScore : factors[key];
                 return (
                   <div key={key} className={key === 'correlationScore' ? 'space-y-1 md:col-span-2' : 'space-y-1'}>
