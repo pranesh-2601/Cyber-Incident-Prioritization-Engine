@@ -9,6 +9,14 @@ const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const requestCounts = new Map();
 
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of requestCounts) {
+    if (now - entry.startedAt >= WINDOW_MS) requestCounts.delete(key);
+  }
+}, WINDOW_MS);
+cleanupInterval.unref();
+
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -33,8 +41,6 @@ app.use(cors({
   maxAge: 600,
 }));
 
-app.use(express.json({ limit: "32kb" }));
-
 app.use((req, res, next) => {
   if (req.method !== "POST" || req.path !== "/api/analyze-incident") {
     return next();
@@ -58,6 +64,8 @@ app.use((req, res, next) => {
   entry.count += 1;
   return next();
 });
+
+app.use(express.json({ limit: "32kb" }));
 
 const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
