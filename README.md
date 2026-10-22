@@ -41,9 +41,13 @@ Each incident is evaluated across 7 weighted factors scaled from **1.0 to 10.0**
 | **Affected Users** | **8%** | Blast radius measured by identity privilege and impacted count |
 
 ### Priority Score Formula:
-$$\text{Weighted Score} = (\text{Sev} \times 0.22) + (\text{Impact} \times 0.18) + (\text{Asset} \times 0.15) + (\text{Data} \times 0.15) + (\text{Conf} \times 0.12) + (\text{Users} \times 0.08) + (\text{Corr} \times 0.10)$$
+For configured weights \(w_i\), the engine normalizes each weight by the sum of all configured weights. This keeps the score on the same scale when custom weights are used:
 
-$$\text{Final Priority Score} = \text{Weighted Score} \times 10 \quad (\text{Range: } 10 - 100)$$
+$\text{Weighted Score} = \frac{\sum_{i=1}^{7}(\text{Factor}_i \times w_i)}{\sum_{i=1}^{7}w_i}$
+
+$\text{Final Priority Score} = \text{Weighted Score} \times 10 \quad (\text{Range: } 10 - 100)$
+
+If every configured weight is zero, the engine falls back to the default weights.
 
 ### 🚦 Deterministic Tie-Breaking Hierarchy:
 1. **Higher Correlation Score** (Multi-stage intrusions take precedence)
