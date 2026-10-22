@@ -57,6 +57,11 @@ export const WeightCustomizer: React.FC<{ onNavigateToQueue: () => void }> = ({ 
           <div className="flex items-center gap-2"><span className="text-slate-400">Total configured weight:</span><span className={`font-bold ${totalWeightPercent === 100 ? 'text-emerald-400' : 'text-yellow-400'}`}>{totalWeightPercent}%</span></div>
           <span className="text-slate-500">Technical formula: Σ(Factor × Normalized Weight) × 10</span>
         </div>
+        {totalWeightPercent === 0 && (
+          <p role="status" className="text-xs text-amber-300">
+            All configured weights are zero. The scoring engine is using default weights until at least one factor weight is increased.
+          </p>
+        )}
       </div>
 
       <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
