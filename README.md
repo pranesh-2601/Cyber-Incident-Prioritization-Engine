@@ -110,6 +110,30 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+### AI Analysis API (optional)
+
+The frontend and AI API run as separate services. Keep `GROQ_API_KEY` on the backend only; never put it in a `VITE_*` variable.
+
+1. Create `server/.env` with the following values:
+
+```env
+GROQ_API_KEY=your_groq_api_key
+PORT=5000
+ALLOWED_ORIGINS=http://localhost:5173
+```
+
+2. Start the backend in a second terminal:
+
+```bash
+cd server
+npm install
+npm start
+```
+
+3. For local frontend development, the API defaults to `http://localhost:5000`. For a deployed frontend, set `VITE_API_BASE_URL` to the deployed backend's origin (without `/api/analyze-incident`) and set the backend's `ALLOWED_ORIGINS` to the exact frontend origin. Redeploy the frontend after changing `VITE_API_BASE_URL`.
+
+The backend accepts `PORT` from its hosting platform, limits JSON request bodies, validates AI responses, and applies a basic per-process request limit. For multi-instance or high-traffic production use, use a shared rate limiter and platform-level protections as well.
+
 ---
 
 ## 🛠️ Tech Stack
